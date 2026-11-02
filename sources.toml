@@ -1,0 +1,166 @@
+# Source releases the graph is built from.
+#
+# Every path is relative to `<data dir>/raw/<release_dir>`. The data dir defaults to
+# `data/` in the repository and can be moved with CLINICAL_GRAPH_DATA_DIR.
+# `required = false` files are used if present but the build does not need them.
+#
+# Check the files on disk:  uv run clinical-graph sources verify
+# Record their checksums:   uv run clinical-graph sources lock
+# Human-readable version:      docs/sources.md
+
+# --------------------------------------------------------------------------------
+[sources.snomed]
+title = "SNOMED CT International Edition, RF2"
+version = "20250901"
+publisher = "SNOMED International"
+licence = "SNOMED CT Affiliate Licence (free in member countries, incl. Sweden and the US)"
+homepage = "https://www.snomed.org/get-snomed"
+download = "https://mlds.ihtsdotools.org/"
+archive = "SnomedCT_InternationalRF2_PRODUCTION_20250901T120000Z.zip"
+release_dir = "snomed/SnomedCT_InternationalRF2_PRODUCTION_20250901T120000Z"
+
+[[sources.snomed.files]]
+path = "Snapshot/Terminology/sct2_Concept_Snapshot_INT_20250901.txt"
+purpose = "Concepts: id, active flag, definition status"
+
+[[sources.snomed.files]]
+path = "Snapshot/Terminology/sct2_Description_Snapshot-en_INT_20250901.txt"
+purpose = "Fully specified names and synonyms"
+
+[[sources.snomed.files]]
+path = "Snapshot/Refset/Language/der2_cRefset_LanguageSnapshot-en_INT_20250901.txt"
+purpose = "Which description is preferred (US / GB English)"
+
+[[sources.snomed.files]]
+path = "Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20250901.txt"
+purpose = "Inferred IS-A hierarchy and attribute relationships"
+
+[[sources.snomed.files]]
+path = "Snapshot/Terminology/sct2_RelationshipConcreteValues_Snapshot_INT_20250901.txt"
+purpose = "Attributes with numeric/string values (e.g. drug strengths)"
+required = false
+
+[[sources.snomed.files]]
+path = "Snapshot/Terminology/sct2_TextDefinition_Snapshot-en_INT_20250901.txt"
+purpose = "Text definitions"
+required = false
+
+[[sources.snomed.files]]
+path = "Snapshot/Refset/Content/der2_cRefset_AssociationSnapshot_INT_20250901.txt"
+purpose = "Historical associations of inactive concepts (REPLACED BY, SAME AS, ...)"
+
+[[sources.snomed.files]]
+path = "Snapshot/Refset/Content/der2_cRefset_AttributeValueSnapshot_INT_20250901.txt"
+purpose = "Inactivation reasons"
+required = false
+
+[[sources.snomed.files]]
+path = "Snapshot/Refset/Map/der2_iisssccRefset_ExtendedMapSnapshot_INT_20250901.txt"
+purpose = "Binding: SNOMED CT -> WHO ICD-10 (refset 447562003). Not ICD-10-CM."
+
+[[sources.snomed.files]]
+path = "Snapshot/Refset/Map/der2_sRefset_SimpleMapSnapshot_INT_20250901.txt"
+purpose = "Binding: SNOMED CT -> ICD-O-3 (446608001) and CTV3 (900000000000497000)"
+required = false
+
+# --------------------------------------------------------------------------------
+[sources.loinc]
+title = "LOINC"
+version = "2.83"
+publisher = "Regenstrief Institute"
+licence = "LOINC licence (free, account needed)"
+homepage = "https://loinc.org/"
+download = "https://loinc.org/downloads/"
+archive = "Loinc_2.83.zip"
+release_dir = "loinc/Loinc_2.83"
+
+[[sources.loinc.files]]
+path = "LoincTable/Loinc.csv"
+purpose = "LOINC terms with their six axes, names, status"
+
+[[sources.loinc.files]]
+path = "LoincTable/MapTo.csv"
+purpose = "Deprecated term -> replacement term"
+
+[[sources.loinc.files]]
+path = "AccessoryFiles/PartFile/Part.csv"
+purpose = "LOINC parts (LP codes)"
+
+[[sources.loinc.files]]
+path = "AccessoryFiles/PartFile/LoincPartLink_Primary.csv"
+purpose = "Term -> part along the six primary axes"
+
+[[sources.loinc.files]]
+path = "AccessoryFiles/PartFile/LoincPartLink_Supplementary.csv"
+purpose = "Term -> part, supplementary links (analyte core, search, ...)"
+
+[[sources.loinc.files]]
+path = "AccessoryFiles/PartFile/PartRelatedCodeMapping.csv"
+purpose = "Binding: LOINC parts -> SNOMED CT, RxNorm, ChEBI, HGNC, NCBI Gene/Taxonomy, RadLex, UNII, PubChem"
+
+[[sources.loinc.files]]
+path = "AccessoryFiles/ComponentHierarchyBySystem/ComponentHierarchyBySystem.csv"
+purpose = "Multi-axial component hierarchy"
+
+[[sources.loinc.files]]
+path = "AccessoryFiles/GroupFile/Group.csv"
+purpose = "LOINC groups"
+required = false
+
+[[sources.loinc.files]]
+path = "AccessoryFiles/GroupFile/GroupLoincTerms.csv"
+purpose = "Group membership of terms"
+required = false
+
+[[sources.loinc.files]]
+path = "AccessoryFiles/GroupFile/ParentGroup.csv"
+purpose = "Parent groups"
+required = false
+
+[[sources.loinc.files]]
+path = "AccessoryFiles/PanelsAndForms/PanelsAndForms.csv"
+purpose = "Panel -> member terms"
+required = false
+
+[[sources.loinc.files]]
+path = "AccessoryFiles/AnswerFile/AnswerList.csv"
+purpose = "Answer lists and answers (LA codes)"
+required = false
+
+[[sources.loinc.files]]
+path = "AccessoryFiles/AnswerFile/LoincAnswerListLink.csv"
+purpose = "Term -> answer list"
+required = false
+
+# --------------------------------------------------------------------------------
+[sources.icd10cm]
+title = "ICD-10-CM and ICD-10-PCS (US), FY2027"
+version = "2027"
+publisher = "CMS / CDC NCHS"
+licence = "Public domain (US government)"
+homepage = "https://www.cms.gov/medicare/coding-billing/icd-10-codes"
+download = "https://www.cms.gov/medicare/coding-billing/icd-10-codes"
+archive = "2027-code-descriptions-tabular-order.zip, 2027-code-tables-tabular-index.zip, 2027-icd-10-pcs-order-file-long-abbreviated-titles.zip"
+release_dir = "icd10cm/2027"
+
+[[sources.icd10cm.files]]
+path = "2027-code-tables-tabular-index/Table and Index/icd10cm_tabular_2027.xml"
+purpose = "ICD-10-CM chapters, blocks, codes and tabular notes (excludes1/2, code first, ...)"
+
+[[sources.icd10cm.files]]
+path = "2027-code-descriptions-tabular-order/Code Descriptions/icd10cm_order_2027.txt"
+purpose = "Every ICD-10-CM code and header with short and long titles"
+
+[[sources.icd10cm.files]]
+path = "2027-code-descriptions-tabular-order/Code Descriptions/icd10cm_codes_2027.txt"
+purpose = "Billable ICD-10-CM codes only"
+required = false
+
+[[sources.icd10cm.files]]
+path = "2027-code-tables-tabular-index/Table and Index/icd10cm_index_2027.xml"
+purpose = "Alphabetic index (index terms usable as synonyms)"
+required = false
+
+[[sources.icd10cm.files]]
+path = "2027-icd-10-pcs-order-file-long-abbreviated-titles/icd10pcs_order_2027.txt"
+purpose = "Every ICD-10-PCS code and table header with titles"
