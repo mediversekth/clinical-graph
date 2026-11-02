@@ -51,7 +51,22 @@ purpose = "Historical associations of inactive concepts (REPLACED BY, SAME AS, .
 
 [[sources.snomed.files]]
 path = "Snapshot/Refset/Content/der2_cRefset_AttributeValueSnapshot_INT_20250901.txt"
-purpose = "Inactivation reasons"
+purpose = "Why inactive concepts were inactivated"
+required = false
+
+[[sources.snomed.files]]
+path = "Full/Terminology/sct2_Concept_Full_INT_20250901.txt"
+purpose = "History: when each concept was first active"
+required = false
+
+[[sources.snomed.files]]
+path = "Full/Terminology/sct2_Relationship_Full_INT_20250901.txt"
+purpose = "History: when each relationship was first active"
+required = false
+
+[[sources.snomed.files]]
+path = "Full/Refset/Content/der2_cRefset_AssociationFull_INT_20250901.txt"
+purpose = "History: when each historical association was first active"
 required = false
 
 [[sources.snomed.files]]

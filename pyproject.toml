@@ -10,7 +10,10 @@ readme = "README.md"
 license = "Apache-2.0"
 authors = [{ name = "Andra Ionescu", email = "adio@kth.se" }]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "neo4j>=6.4.1",
+    "python-dotenv>=1.2.4",
+]
 
 [project.scripts]
 clinical-graph = "clinical_graph.cli:main"

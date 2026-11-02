@@ -83,6 +83,18 @@
   },
   "snomed": {
     "files": {
+      "Full/Refset/Content/der2_cRefset_AssociationFull_INT_20250901.txt": {
+        "sha256": "7ff85aa7fe13fb1ec1e43041beb57d99f5e392d2855f58f395b57cf31f24f851",
+        "size": 28176725
+      },
+      "Full/Terminology/sct2_Concept_Full_INT_20250901.txt": {
+        "sha256": "5f637038b27d19d8262ce4a76b1cf024cc4ad92f0137d515d1d66ce3d0d7c253",
+        "size": 42586173
+      },
+      "Full/Terminology/sct2_Relationship_Full_INT_20250901.txt": {
+        "sha256": "d7c7b0f4b2c7738f2d074ba2b2dbf85c7198bf3ffd52af5f3a35213a1ef1a1c7",
+        "size": 742293711
+      },
       "Snapshot/Refset/Content/der2_cRefset_AssociationSnapshot_INT_20250901.txt": {
         "sha256": "50a15ee484fc34294f3c63ff3b4e0c16e10093b13e9080e255bc77b7bbdbd7ca",
         "size": 23172960

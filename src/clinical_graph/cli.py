@@ -1,6 +1,7 @@
 """Command-line entry point: ``clinical-graph``."""
 
 import argparse
+import logging
 import sys
 from collections.abc import Sequence
 
@@ -26,6 +27,20 @@ def _cmd_lock(_: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_ingest(args: argparse.Namespace) -> int:
+    from clinical_graph.graph_ingestion import dry_run, ingest
+
+    keys = args.source or None
+    if args.dry_run:
+        for key, counts in dry_run(keys).items():
+            print(f"[{key}]")
+            for name, n in counts.items():
+                print(f"  {name:50} {n:>10,}")
+        return 0
+    ingest(keys, batch_size=args.batch_size, replace=args.replace)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(prog="clinical-graph", description=__doc__)
@@ -43,12 +58,35 @@ def build_parser() -> argparse.ArgumentParser:
     ssub.add_parser("lock", help="record checksums in sources.lock.json").set_defaults(
         func=_cmd_lock
     )
+
+    ing = sub.add_parser(
+        "ingest",
+        help="load the vocabulary graphs into Neo4j (nodes + same-vocabulary edges)",
+    )
+    ing.add_argument(
+        "source",
+        nargs="*",
+        help="sources.toml keys (default: all): snomed loinc icd10cm",
+    )
+    ing.add_argument(
+        "--batch-size", type=int, default=10_000, help="rows per transaction"
+    )
+    ing.add_argument(
+        "--replace",
+        action="store_true",
+        help="delete the vocabulary's nodes first (use after a release update)",
+    )
+    ing.add_argument(
+        "--dry-run", action="store_true", help="read and count only; no Neo4j"
+    )
+    ing.set_defaults(func=_cmd_ingest)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI."""
     args = build_parser().parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     return int(args.func(args))
 
 

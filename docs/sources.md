@@ -64,7 +64,8 @@ and commit the new lock file.
   available through the [NLM UMLS Terminology Services](https://uts.nlm.nih.gov/).
 - **Unpack to:** `data/raw/snomed/` (the zip contains the top-level folder).
 
-Files used (all in `Snapshot/`; the `Full/` history is not needed):
+Files used. The Snapshot has every component in its latest state, inactive ones
+included; the `Full/` files only add when each one was first active (optional):
 
 | File | Used for |
 | --- | --- |
@@ -74,8 +75,11 @@ Files used (all in `Snapshot/`; the `Full/` history is not needed):
 | `Terminology/sct2_Relationship_Snapshot_INT_20250901.txt` | inferred `ISA` hierarchy and attributes |
 | `Terminology/sct2_RelationshipConcreteValues_Snapshot_INT_20250901.txt` | concrete-valued attributes (optional) |
 | `Terminology/sct2_TextDefinition_Snapshot-en_INT_20250901.txt` | text definitions (optional) |
-| `Refset/Content/der2_cRefset_AssociationSnapshot_INT_20250901.txt` | `REPLACEDBY`, `SAMEAS`, … for inactive concepts |
+| `Refset/Content/der2_cRefset_AssociationSnapshot_INT_20250901.txt` | `REPLACED_BY`, `SAME_AS`, … for inactive concepts |
 | `Refset/Content/der2_cRefset_AttributeValueSnapshot_INT_20250901.txt` | inactivation reasons (optional) |
+| `Full/Terminology/sct2_Concept_Full_INT_20250901.txt` | `first_active` of concepts (optional) |
+| `Full/Terminology/sct2_Relationship_Full_INT_20250901.txt` | `first_active` of relationships (optional) |
+| `Full/Refset/Content/der2_cRefset_AssociationFull_INT_20250901.txt` | `first_active` of associations (optional) |
 | `Refset/Map/der2_iisssccRefset_ExtendedMapSnapshot_INT_20250901.txt` | **binding** SNOMED CT → WHO ICD-10 |
 | `Refset/Map/der2_sRefset_SimpleMapSnapshot_INT_20250901.txt` | **binding** SNOMED CT → ICD-O-3, CTV3 (optional) |
 
