@@ -50,7 +50,7 @@ _CODE = r"[A-Z]\d[0-9A-Z](?:\.[0-9A-Z]{0,4})?"
 # A code reference inside a note's parentheses: E11.9, E08.-, T39.9-, E08-E13
 _REF = re.compile(rf"({_CODE})(?:\s*-\s*({_CODE})|\.?-)?")
 _PARENS = re.compile(r"\(([^()]*)\)")
-_CHAPTER_RANGE = re.compile(r"\(([A-Z]\d\d-[A-Z]\d\d)\)\s*$")
+_CHAPTER_RANGE = re.compile(r"\(([A-Z][0-9A-Z]{2}-[A-Z][0-9A-Z]{2})\)\s*$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,6 +286,32 @@ class Icd10CmReader(VocabularyReader):
                 targets.extend(_cm(c) for c in span)
                 missed += not span
         return targets, missed
+
+    def match(self, vocabulary: Vocabulary, code: str) -> tuple[str, str] | None:
+        """Resolve a map target to an ICD-10-CM code (ICD-10-PCS: exact only).
+
+        Tried in order: the code as given (``exact``); trimmed and upper-cased
+        (``normalised``); the longest prefix that is a code (``ancestor``): a
+        code retired from this release, or a target whose 7th character is left
+        open (``S72.001?`` -> ``S72.001``, ``M48.40X?`` -> ``M48.40``).
+
+        Returns:
+            The concept id and how it matched, or ``None``.
+        """
+        if vocabulary is not Vocabulary.ICD10CM:
+            return super().match(vocabulary, code)
+        codes = self._codes
+        if code in codes:
+            return _cm(code), "exact"
+        normalised = code.strip().upper()
+        if normalised in codes:
+            return _cm(normalised), "normalised"
+        prefix = normalised
+        while len(prefix) > 3:
+            prefix = prefix[:-1].rstrip(".")
+            if prefix in codes:
+                return _cm(prefix), "ancestor"
+        return None
 
     def iter_mappings(self) -> Iterator[Mapping]:
         """Yield nothing: the CMS release contains no cross-vocabulary maps."""

@@ -1,7 +1,8 @@
 # clinical-graph
 
 A graph of clinical vocabularies and their bindings. The first version covers
-SNOMED CT, LOINC and ICD-10-CM/PCS, read directly from their official releases.
+SNOMED CT, LOINC, ICD-10-CM/PCS, WHO ICD-10, RxNorm and ATC, read directly from
+their official releases.
 
 ## Setup
 
@@ -27,12 +28,15 @@ uv run clinical-graph sources lock     # record new checksums after updating a r
 
 ## Neo4j
 
-The vocabularies are loaded into Neo4j, one graph per vocabulary (no edges between
-them yet). Copy `.env.example` to `.env` and set `NEO4J_PASSWORD`, then:
+The vocabularies are loaded into Neo4j, one graph per vocabulary, then linked by
+the maps the releases publish (`MAPS_TO` edges: SNOMED CT → WHO ICD-10, SNOMED CT → ICD-10-CM, LOINC term and
+part → SNOMED CT, LOINC part → RxNorm, RxNorm → ATC and SNOMED CT). LOINC terms are also in SNOMED CT through the LOINC Extension..
+Copy `.env.example` to `.env` and set `NEO4J_PASSWORD`, then:
 
 ```bash
 uv run clinical-graph ingest --dry-run   # read and count only
-uv run clinical-graph ingest             # SNOMED CT, LOINC, ICD-10-CM/PCS into Neo4j
+uv run clinical-graph ingest             # SNOMED CT (+ LOINC Extension), LOINC, ICD-10-CM/PCS, ICD-10, RxNorm + ATC
+uv run clinical-graph bind               # cross-vocabulary MAPS_TO edges
 ```
 
 Labels, properties, relationship types and example queries:
@@ -49,13 +53,14 @@ src/clinical_graph/
 ├── paths.py                 # data directory locations
 ├── model.py                 # Concept, Relation (within a vocabulary), Mapping (binding)
 ├── sources/                 # manifest loading, presence and checksum checks
-├── vocabularies/            # one reader per source: snomed, loinc, icd10cm
+├── vocabularies/            # one reader per source: snomed, loinc, icd10cm, icd10
 │   └── base.py              # VocabularyReader: iter_concepts / iter_relations / iter_mappings
 ├── graph_ingestion/         # write readers' output to Neo4j
 │   ├── connection.py        # NEO4J_* settings from env / .env
 │   ├── schema.py            # labels, constraint, indexes
-│   ├── writer.py            # batched MERGE; edges only within one vocabulary
-│   └── ingest.py            # ingest(), dry_run(), delete_vocabulary()
+│   ├── writer.py            # batched MERGE; relations within, MAPS_TO across vocabularies
+│   ├── ingest.py            # ingest(), dry_run(), delete_vocabulary()
+│   └── bindings.py          # bind(): resolve map targets, write MAPS_TO edges
 └── cli.py                   # `clinical-graph` command
 ```
 

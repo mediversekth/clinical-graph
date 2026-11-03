@@ -3,10 +3,11 @@
 import csv
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from functools import cached_property
 from pathlib import Path
 from typing import ClassVar
 
-from clinical_graph.model import Concept, Mapping, Relation, Vocabulary
+from clinical_graph.model import Concept, Mapping, Relation, Vocabulary, concept_id
 from clinical_graph.sources.manifest import Source
 
 
@@ -20,6 +21,14 @@ class VocabularyReader(ABC):
 
     source_key: ClassVar[str]
     vocabularies: ClassVar[tuple[Vocabulary, ...]]
+    provenances: ClassVar[tuple[str, ...]] = ()
+    """``provenance`` of the mappings :meth:`iter_mappings` yields; ``bind
+    --replace`` deletes only the ``MAPS_TO`` edges with these."""
+    extension: ClassVar[str | None] = None
+    """Set by a reader of an extension to another reader's vocabulary (the SNOMED
+    CT LOINC Extension): its nodes carry this as their ``extension`` property, and
+    ``ingest --replace`` deletes only them; the base reader's (``None``) deletes
+    only nodes without one."""
 
     def __init__(self, source: Source, raw_dir: Path | None = None) -> None:
         """Bind the reader to a release on disk.
@@ -62,6 +71,23 @@ class VocabularyReader(ABC):
         """Yield the rows of an unquoted tab-separated manifest file (RF2) as dicts."""
         with self.path(manifest_path).open(encoding="utf-8", newline="") as fh:
             yield from csv.DictReader(fh, delimiter="\t", quoting=csv.QUOTE_NONE)
+
+    @cached_property
+    def concept_ids(self) -> frozenset[str]:
+        """Ids of every concept this reader yields (reads the release once)."""
+        return frozenset(c.id for c in self.iter_concepts())
+
+    def match(self, vocabulary: Vocabulary, code: str) -> tuple[str, str] | None:
+        """Resolve a code published by another source (a map target) to a concept.
+
+        The default accepts the code only as given; readers whose codes are
+        published in variant forms override it.
+
+        Returns:
+            The concept id and how it matched (``"exact"``, ...), or ``None``.
+        """
+        cid = concept_id(vocabulary, code)
+        return (cid, "exact") if cid in self.concept_ids else None
 
     @abstractmethod
     def iter_concepts(self) -> Iterator[Concept]:

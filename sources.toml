@@ -74,9 +74,118 @@ path = "Snapshot/Refset/Map/der2_iisssccRefset_ExtendedMapSnapshot_INT_20250901.
 purpose = "Binding: SNOMED CT -> WHO ICD-10 (refset 447562003). Not ICD-10-CM."
 
 [[sources.snomed.files]]
+path = "Full/Refset/Map/der2_iisssccRefset_ExtendedMapFull_INT_20250901.txt"
+purpose = "History: when each ICD-10 map row was first active"
+required = false
+
+[[sources.snomed.files]]
 path = "Snapshot/Refset/Map/der2_sRefset_SimpleMapSnapshot_INT_20250901.txt"
 purpose = "Binding: SNOMED CT -> ICD-O-3 (446608001) and CTV3 (900000000000497000)"
 required = false
+
+# --------------------------------------------------------------------------------
+[sources.rxnorm]
+title = "RxNorm Full Monthly Release (with ATC)"
+version = "20261102"
+publisher = "U.S. National Library of Medicine"
+licence = "UMLS Metathesaurus Licence (free, UTS account); SNOMED CT atoms need a SNOMED CT affiliate licence"
+homepage = "https://www.nlm.nih.gov/research/umls/rxnorm/"
+download = "https://www.nlm.nih.gov/research/umls/rxnorm/docs/rxnormfiles.html"
+archive = "RxNorm_full_11022026.zip"
+release_dir = "RxNorm_full_11022026"
+
+[[sources.rxnorm.files]]
+path = "rrf/RXNCONSO.RRF"
+purpose = "RxNorm concepts and names; ATC codes (SAB=ATC); bindings to ATC and SNOMED CT (SAB=SNOMEDCT_US)"
+
+[[sources.rxnorm.files]]
+path = "rrf/RXNREL.RRF"
+purpose = "RxNorm relationships (isa, has_ingredient, tradename_of, consists_of, ...)"
+
+[[sources.rxnorm.files]]
+path = "rrf/RXNSAT.RRF"
+purpose = "Attributes: NDC codes, strengths"
+
+[[sources.rxnorm.files]]
+path = "rrf/RXNCUI.RRF"
+purpose = "Retired RXCUIs and the concept each went to (resolves old map targets)"
+required = false
+
+# --------------------------------------------------------------------------------
+[sources.loinc_extension]
+title = "SNOMED CT LOINC Extension (LOINC Ontology), RF2"
+version = "20261021"
+publisher = "SNOMED International and Regenstrief Institute"
+licence = "SNOMED CT Affiliate Licence + LOINC licence (free in member countries)"
+homepage = "https://loincsnomed.org/"
+download = "https://mlds.ihtsdotools.org/"
+archive = "SnomedCT_LOINCExtension_PRODUCTION_LO1010000_20261021T120000Z.zip"
+release_dir = "SnomedCT_LOINCExtension_PRODUCTION_LO1010000_20261021T120000Z"
+# Built on SNOMED CT International 20260701 and LOINC 2.83.
+
+[[sources.loinc_extension.files]]
+path = "Snapshot/Terminology/sct2_Concept_Snapshot_LO1010000_20261021.txt"
+purpose = "Extension concepts (LOINC terms as observable entities, and the substances, ... they need)"
+
+[[sources.loinc_extension.files]]
+path = "Snapshot/Terminology/sct2_Description_Snapshot-en_LO1010000_20261021.txt"
+purpose = "Fully specified names and synonyms"
+
+[[sources.loinc_extension.files]]
+path = "Snapshot/Refset/Language/der2_cRefset_LanguageSnapshot-en_LO1010000_20261021.txt"
+purpose = "Which description is preferred (US English)"
+
+[[sources.loinc_extension.files]]
+path = "Snapshot/Terminology/sct2_Relationship_Snapshot_LO1010000_20261021.txt"
+purpose = "Inferred IS-A (into the International hierarchy) and observable attributes"
+
+[[sources.loinc_extension.files]]
+path = "Snapshot/Terminology/sct2_Identifier_Snapshot_LO1010000_20261021.txt"
+purpose = "Binding: LOINC code of each concept (identifier scheme 30051010000102)"
+
+[[sources.loinc_extension.files]]
+path = "Snapshot/Terminology/sct2_TextDefinition_Snapshot-en_LO1010000_20261021.txt"
+purpose = "Text definitions"
+required = false
+
+[[sources.loinc_extension.files]]
+path = "Snapshot/Refset/Content/der2_cRefset_AssociationSnapshot_LO1010000_20261021.txt"
+purpose = "Historical associations of inactive concepts"
+
+[[sources.loinc_extension.files]]
+path = "Snapshot/Refset/Content/der2_cRefset_AttributeValueSnapshot_LO1010000_20261021.txt"
+purpose = "Why inactive concepts were inactivated"
+required = false
+
+[[sources.loinc_extension.files]]
+path = "Full/Terminology/sct2_Concept_Full_LO1010000_20261021.txt"
+purpose = "History: when each concept was first active"
+required = false
+
+[[sources.loinc_extension.files]]
+path = "Full/Terminology/sct2_Relationship_Full_LO1010000_20261021.txt"
+purpose = "History: when each relationship was first active"
+required = false
+
+[[sources.loinc_extension.files]]
+path = "Full/Refset/Content/der2_cRefset_AssociationFull_LO1010000_20261021.txt"
+purpose = "History: when each historical association was first active"
+required = false
+
+# --------------------------------------------------------------------------------
+[sources.snomed_icd10cm]
+title = "SNOMED CT to ICD-10-CM Map (NLM), human-readable release"
+version = "20260901"
+publisher = "U.S. National Library of Medicine"
+licence = "UMLS Metathesaurus Licence + SNOMED CT Affiliate Licence (free, UTS account needed)"
+homepage = "https://www.nlm.nih.gov/research/umls/mapping_projects/snomedct_to_icd10cm.html"
+download = "https://www.nlm.nih.gov/research/umls/licensedcontent/snomedctfiles.html"
+archive = "SNOMED_CT_to_ICD-10-CM_Resources_20260901.zip"
+release_dir = "SNOMED_CT_to_ICD-10-CM_Resources_20260901"
+
+[[sources.snomed_icd10cm.files]]
+path = "tls_Icd10cmHumanReadableMap_US1000124_20260901.tsv"
+purpose = "Binding: SNOMED CT -> ICD-10-CM (refset 6011000124106), active rows, with map rules and advice"
 
 # --------------------------------------------------------------------------------
 [sources.loinc]
@@ -179,3 +288,18 @@ required = false
 [[sources.icd10cm.files]]
 path = "2027-icd-10-pcs-order-file-long-abbreviated-titles/icd10pcs_order_2027.txt"
 purpose = "Every ICD-10-PCS code and table header with titles"
+
+# --------------------------------------------------------------------------------
+[sources.icd10]
+title = "ICD-10 (WHO), 2019 edition, ClaML"
+version = "2019"
+publisher = "World Health Organization"
+licence = "WHO ICD-10 terms of use (free download, no account)"
+homepage = "https://icd.who.int/browse10/2019/en"
+download = "https://icdcdn.who.int/icd10/index.html"
+archive = "icd102019en.xml.zip"
+release_dir = "icd10/2019"
+
+[[sources.icd10.files]]
+path = "icd102019en.xml"
+purpose = "Chapters, blocks, categories, modifiers (4th/5th-character subdivisions), inclusion and exclusion notes"

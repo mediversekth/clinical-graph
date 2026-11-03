@@ -12,6 +12,9 @@ LABELS: dict[Vocabulary, str] = {
     Vocabulary.LOINC: "LOINC",
     Vocabulary.ICD10CM: "ICD10CM",
     Vocabulary.ICD10PCS: "ICD10PCS",
+    Vocabulary.ICD10: "ICD10",
+    Vocabulary.RXNORM: "RXNORM",
+    Vocabulary.ATC: "ATC",
 }
 """Neo4j label of each vocabulary that is loaded as a graph."""
 

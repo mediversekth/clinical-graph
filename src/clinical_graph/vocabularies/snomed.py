@@ -17,8 +17,13 @@ codes and hierarchies of older records (EHRs, annotations) stay in the graph.
   And every row of ``der2_cRefset_Association`` between two concepts
   (``REPLACED_BY``, ``SAME_AS``, ``POSSIBLY_EQUIVALENT_TO``,
   ``ANATOMY_STRUCTURE_AND_PART``, ...), keyed by the refset member id.
-* Mappings (not implemented yet): ``der2_iisssccRefset_ExtendedMap`` (refset
-  447562003) to **WHO ICD-10**, and ICD-O-3 from ``der2_sRefset_SimpleMap``.
+* Mappings: every row of ``der2_iisssccRefset_ExtendedMap`` refset 447562003,
+  the map to **WHO ICD-10** (not ICD-10-CM), active and inactive, keyed by the
+  refset member id. A concept can have several rows: one per map group (each
+  group is one target code; dagger/asterisk pairs use two) and, within a group,
+  alternatives in ``map_priority`` order chosen by ``map_rule`` (``TRUE``, or a
+  condition on sex or age). Rows without a target (the concept cannot be
+  classified) are skipped. ICD-O-3 (``der2_sRefset_SimpleMap``) is not read yet.
 """
 
 import re
@@ -27,21 +32,32 @@ from collections.abc import Iterator
 from functools import cached_property
 from typing import ClassVar
 
-from clinical_graph.model import Concept, Mapping, Relation, Vocabulary, concept_id
+from clinical_graph.model import (
+    Concept,
+    Mapping,
+    MappingEquivalence,
+    Relation,
+    Vocabulary,
+    concept_id,
+)
 from clinical_graph.vocabularies.base import VocabularyReader
 
-CONCEPT = "Snapshot/Terminology/sct2_Concept_Snapshot_INT_{v}.txt"
-DESCRIPTION = "Snapshot/Terminology/sct2_Description_Snapshot-en_INT_{v}.txt"
-TEXT_DEFINITION = "Snapshot/Terminology/sct2_TextDefinition_Snapshot-en_INT_{v}.txt"
-LANGUAGE = "Snapshot/Refset/Language/der2_cRefset_LanguageSnapshot-en_INT_{v}.txt"
-RELATIONSHIP = "Snapshot/Terminology/sct2_Relationship_Snapshot_INT_{v}.txt"
-ASSOCIATION = "Snapshot/Refset/Content/der2_cRefset_AssociationSnapshot_INT_{v}.txt"
+# RF2 file name templates: ``{e}`` is the edition (``INT``; an extension's
+# namespace, ``LO1010000``), ``{v}`` the release version.
+CONCEPT = "Snapshot/Terminology/sct2_Concept_Snapshot_{e}_{v}.txt"
+DESCRIPTION = "Snapshot/Terminology/sct2_Description_Snapshot-en_{e}_{v}.txt"
+TEXT_DEFINITION = "Snapshot/Terminology/sct2_TextDefinition_Snapshot-en_{e}_{v}.txt"
+LANGUAGE = "Snapshot/Refset/Language/der2_cRefset_LanguageSnapshot-en_{e}_{v}.txt"
+RELATIONSHIP = "Snapshot/Terminology/sct2_Relationship_Snapshot_{e}_{v}.txt"
+ASSOCIATION = "Snapshot/Refset/Content/der2_cRefset_AssociationSnapshot_{e}_{v}.txt"
 ATTRIBUTE_VALUE = (
-    "Snapshot/Refset/Content/der2_cRefset_AttributeValueSnapshot_INT_{v}.txt"
+    "Snapshot/Refset/Content/der2_cRefset_AttributeValueSnapshot_{e}_{v}.txt"
 )
-CONCEPT_FULL = "Full/Terminology/sct2_Concept_Full_INT_{v}.txt"
-RELATIONSHIP_FULL = "Full/Terminology/sct2_Relationship_Full_INT_{v}.txt"
-ASSOCIATION_FULL = "Full/Refset/Content/der2_cRefset_AssociationFull_INT_{v}.txt"
+CONCEPT_FULL = "Full/Terminology/sct2_Concept_Full_{e}_{v}.txt"
+RELATIONSHIP_FULL = "Full/Terminology/sct2_Relationship_Full_{e}_{v}.txt"
+ASSOCIATION_FULL = "Full/Refset/Content/der2_cRefset_AssociationFull_{e}_{v}.txt"
+EXTENDED_MAP = "Snapshot/Refset/Map/der2_iisssccRefset_ExtendedMapSnapshot_{e}_{v}.txt"
+EXTENDED_MAP_FULL = "Full/Refset/Map/der2_iisssccRefset_ExtendedMapFull_{e}_{v}.txt"
 
 FSN = "900000000000003001"
 SYNONYM = "900000000000013009"
@@ -52,6 +68,8 @@ INFERRED = "900000000000011006"
 ADDITIONAL = "900000000000227009"
 CHARACTERISTIC = {INFERRED: "inferred", ADDITIONAL: "additional"}
 CONCEPT_INACTIVATION = "900000000000489007"
+ICD10_MAP = "447562003"
+ICD10_MAP_PROVENANCE = "SNOMED CT International map to ICD-10 (refset 447562003)"
 DEFINED = "900000000000073002"
 
 _SEMANTIC_TAG = re.compile(r"\s*\(([^()]+)\)$")
@@ -103,12 +121,19 @@ class SnomedReader(VocabularyReader):
 
     source_key: ClassVar[str] = "snomed"
     vocabularies: ClassVar[tuple[Vocabulary, ...]] = (Vocabulary.SNOMED,)
+    provenances: ClassVar[tuple[str, ...]] = (ICD10_MAP_PROVENANCE,)
+    edition: ClassVar[str] = "INT"
+    """The edition part of the RF2 file names (``{e}`` in the templates)."""
+
+    def _rf2(self, template: str) -> str:
+        """Manifest path of an RF2 file of this edition (``{v}`` left to ``path``)."""
+        return template.replace("{e}", self.edition)
 
     @cached_property
     def _terms(self) -> _Terms:
         preferred: set[str] = set()
         acceptable: set[str] = set()
-        for row in self.read_tsv(LANGUAGE):
+        for row in self.read_tsv(self._rf2(LANGUAGE)):
             if row["active"] == "1" and row["refsetId"] == US_ENGLISH:
                 target = (
                     preferred if row["acceptabilityId"] == PREFERRED else acceptable
@@ -116,7 +141,7 @@ class SnomedReader(VocabularyReader):
                 target.add(row["referencedComponentId"])
 
         terms = _Terms()
-        for row in self.read_tsv(DESCRIPTION):
+        for row in self.read_tsv(self._rf2(DESCRIPTION)):
             did, cid, term = row["id"], row["conceptId"], row["term"]
             if row["active"] != "1":
                 terms.inactive[cid].append(term)
@@ -131,21 +156,21 @@ class SnomedReader(VocabularyReader):
         return terms
 
     def _definitions(self) -> dict[str, str]:
-        if not self.has(TEXT_DEFINITION):
+        if not self.has(self._rf2(TEXT_DEFINITION)):
             return {}
         return {
             row["conceptId"]: row["term"]
-            for row in self.read_tsv(TEXT_DEFINITION)
+            for row in self.read_tsv(self._rf2(TEXT_DEFINITION))
             if row["active"] == "1"
         }
 
     def _inactivation_reasons(self) -> dict[str, str]:
         """Concept id -> why it was inactivated (``Duplicate component``, ...)."""
-        if not self.has(ATTRIBUTE_VALUE):
+        if not self.has(self._rf2(ATTRIBUTE_VALUE)):
             return {}
         return {
             row["referencedComponentId"]: self._name(row["valueId"])
-            for row in self.read_tsv(ATTRIBUTE_VALUE)
+            for row in self.read_tsv(self._rf2(ATTRIBUTE_VALUE))
             if row["active"] == "1" and row["refsetId"] == CONCEPT_INACTIVATION
         }
 
@@ -154,6 +179,7 @@ class SnomedReader(VocabularyReader):
 
         Read from a Full file; empty when the Full release is not on disk.
         """
+        full_path = self._rf2(full_path)
         if not self.has(full_path):
             return {}
         first: dict[str, str] = {}
@@ -174,7 +200,7 @@ class SnomedReader(VocabularyReader):
         definitions = self._definitions()
         reasons = self._inactivation_reasons()
         first_active = self._first_active(CONCEPT_FULL)
-        for row in self.read_tsv(CONCEPT):
+        for row in self.read_tsv(self._rf2(CONCEPT)):
             cid = row["id"]
             active = row["active"] == "1"
             fsn = terms.fsn.get(cid)
@@ -199,6 +225,8 @@ class SnomedReader(VocabularyReader):
                     ),
                     "definition": definitions.get(cid),
                     "module_id": row["moduleId"],
+                    # None removes it: the node belongs to the International Edition
+                    "extension": self.extension,
                     "effective_time": row["effectiveTime"],
                     "first_active": first_active.get(cid),
                     "inactivation_reason": None if active else reasons.get(cid),
@@ -214,7 +242,7 @@ class SnomedReader(VocabularyReader):
         """
         types: dict[str, str] = {ISA: "ISA"}
         first_active = self._first_active(RELATIONSHIP_FULL)
-        for row in self.read_tsv(RELATIONSHIP):
+        for row in self.read_tsv(self._rf2(RELATIONSHIP)):
             characteristic = CHARACTERISTIC.get(row["characteristicTypeId"])
             if characteristic is None:
                 continue
@@ -238,7 +266,7 @@ class SnomedReader(VocabularyReader):
 
         refsets: dict[str, str] = {}
         first_active = self._first_active(ASSOCIATION_FULL)
-        for row in self.read_tsv(ASSOCIATION):
+        for row in self.read_tsv(self._rf2(ASSOCIATION)):
             source, target = row["referencedComponentId"], row["targetComponentId"]
             if not (is_concept_id(source) and is_concept_id(target)):
                 continue
@@ -261,5 +289,39 @@ class SnomedReader(VocabularyReader):
             )
 
     def iter_mappings(self) -> Iterator[Mapping]:
-        """Yield the SNOMED CT -> ICD-10 (WHO) map."""
-        raise NotImplementedError
+        """Yield the SNOMED CT -> WHO ICD-10 map rows, active and inactive.
+
+        The target id holds the code as published; the binding step resolves it
+        against the ICD-10 graph (see ``Icd10Reader.match``).
+        """
+        first_active = self._first_active(EXTENDED_MAP_FULL)
+        names: dict[str, str] = {}
+
+        def name(sctid: str) -> str:
+            if sctid not in names:
+                names[sctid] = self._name(sctid)
+            return names[sctid]
+
+        for row in self.read_tsv(self._rf2(EXTENDED_MAP)):
+            target = row["mapTarget"].strip()
+            if row["refsetId"] != ICD10_MAP or not target:
+                continue
+            yield Mapping(
+                source=_sid(row["referencedComponentId"]),
+                target=concept_id(Vocabulary.ICD10, target),
+                equivalence=MappingEquivalence.UNSPECIFIED,
+                provenance=ICD10_MAP_PROVENANCE,
+                key=row["id"],
+                properties={
+                    "active": row["active"] == "1",
+                    "effective_time": row["effectiveTime"],
+                    "first_active": first_active.get(row["id"]),
+                    "refset_id": row["refsetId"],
+                    "map_group": int(row["mapGroup"]),
+                    "map_priority": int(row["mapPriority"]),
+                    "map_rule": row["mapRule"] or None,
+                    "map_advice": row["mapAdvice"] or None,
+                    "map_category": name(row["mapCategoryId"]),
+                    "correlation": name(row["correlationId"]),
+                },
+            )

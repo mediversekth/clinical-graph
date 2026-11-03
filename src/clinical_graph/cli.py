@@ -41,6 +41,20 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_bind(args: argparse.Namespace) -> int:
+    from clinical_graph.graph_ingestion import bind, dry_run_bind
+
+    keys = args.source or None
+    if args.dry_run:
+        for key, counts in dry_run_bind(keys).items():
+            print(f"[{key}]")
+            for name, n in counts.items():
+                print(f"  {name:50} {n:>10,}")
+        return 0
+    bind(keys, batch_size=args.batch_size, replace=args.replace)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(prog="clinical-graph", description=__doc__)
@@ -66,7 +80,8 @@ def build_parser() -> argparse.ArgumentParser:
     ing.add_argument(
         "source",
         nargs="*",
-        help="sources.toml keys (default: all): snomed loinc icd10cm",
+        help="sources.toml keys (default: all): "
+        "snomed loinc_extension loinc icd10cm icd10 rxnorm",
     )
     ing.add_argument(
         "--batch-size", type=int, default=10_000, help="rows per transaction"
@@ -80,6 +95,30 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run", action="store_true", help="read and count only; no Neo4j"
     )
     ing.set_defaults(func=_cmd_ingest)
+
+    bnd = sub.add_parser(
+        "bind",
+        help="write cross-vocabulary mappings as MAPS_TO edges (after ingest)",
+    )
+    bnd.add_argument(
+        "source",
+        nargs="*",
+        help="sources.toml keys whose maps to write (default: all): "
+        "snomed snomed_icd10cm loinc loinc_extension rxnorm",
+    )
+    bnd.add_argument(
+        "--batch-size", type=int, default=10_000, help="rows per transaction"
+    )
+    bnd.add_argument(
+        "--replace",
+        action="store_true",
+        help="delete the source's MAPS_TO edges first, by provenance "
+        "(use after a release update)",
+    )
+    bnd.add_argument(
+        "--dry-run", action="store_true", help="read and resolve only; no Neo4j"
+    )
+    bnd.set_defaults(func=_cmd_bind)
     return parser
 
 

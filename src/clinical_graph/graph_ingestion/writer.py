@@ -3,10 +3,12 @@
 Nodes are MERGEd on ``Concept.id``; relationships on their endpoints, type and
 ``Relation.key``. Running an ingestion twice therefore changes nothing.
 
-A relationship is written only when both endpoints carry the *same* vocabulary
-label, so no edge can join two vocabulary graphs. Relations whose endpoints are
-in different vocabularies are rejected; relations whose endpoints do not exist
-are skipped by the ``MATCH`` (and counted as skipped).
+:meth:`GraphWriter.write_relations` writes an edge only when both endpoints carry
+the *same* vocabulary label, so no relation can join two vocabulary graphs.
+Bindings between vocabularies go through :meth:`GraphWriter.write_mappings`
+instead, as ``MAPS_TO`` edges MERGEd on ``provenance`` and ``id`` (the mapping's
+key), and only between *different* vocabulary labels. Either way, records whose
+endpoints do not exist are skipped by the ``MATCH`` (and counted as skipped).
 """
 
 import logging
@@ -19,7 +21,7 @@ from typing import Any, LiteralString, cast
 from neo4j import Driver, ManagedTransaction
 
 from clinical_graph.graph_ingestion.schema import CONCEPT_LABEL, LABELS
-from clinical_graph.model import Concept, Relation, Vocabulary, vocabulary_of
+from clinical_graph.model import Concept, Mapping, Relation, Vocabulary, vocabulary_of
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +29,9 @@ _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 _REL_TYPE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
 type Row = dict[str, Any]
+
+MAPS_TO = "MAPS_TO"
+"""Relationship type of every cross-vocabulary binding."""
 
 
 def _label(vocabulary: Vocabulary) -> str:
@@ -166,5 +171,52 @@ class GraphWriter:
         )
         written = self._run(query, buffer)
         self.counts.edges[f"{label}:{rel_type}"] += written
+        self.counts.skipped_edges += len(buffer) - written
+        buffer.clear()
+
+    def write_mappings(self, mappings: Iterable[Mapping]) -> None:
+        """MERGE ``MAPS_TO`` edges between concepts of two different vocabularies.
+
+        Raises:
+            ValueError: If a mapping joins two concepts of the same vocabulary.
+        """
+        buffers: defaultdict[tuple[Vocabulary, Vocabulary], list[Row]] = defaultdict(
+            list
+        )
+        for m in mappings:
+            group = (vocabulary_of(m.source), vocabulary_of(m.target))
+            if group[0] is group[1]:
+                raise ValueError(f"mapping within one vocabulary: {m}")
+            buffer = buffers[group]
+            buffer.append(
+                {
+                    "source": m.source,
+                    "target": m.target,
+                    "provenance": m.provenance,
+                    "id": m.key or "",
+                    "props": {**m.properties, "equivalence": str(m.equivalence)},
+                }
+            )
+            if len(buffer) >= self.batch_size:
+                self._flush_mappings(*group, buffer)
+        for group, buffer in buffers.items():
+            self._flush_mappings(*group, buffer)
+
+    def _flush_mappings(
+        self, source: Vocabulary, target: Vocabulary, buffer: list[Row]
+    ) -> None:
+        if not buffer:
+            return
+        a_label, b_label = _label(source), _label(target)
+        query = (
+            f"UNWIND $rows AS row "
+            f"MATCH (a:{CONCEPT_LABEL} {{id: row.source}}) WHERE a:{a_label} "
+            f"MATCH (b:{CONCEPT_LABEL} {{id: row.target}}) WHERE b:{b_label} "
+            f"MERGE (a)-[r:{MAPS_TO} {{provenance: row.provenance, id: row.id}}]->(b) "
+            f"SET r += row.props "
+            f"RETURN count(r) AS n"
+        )
+        written = self._run(query, buffer)
+        self.counts.edges[f"{a_label}-{MAPS_TO}->{b_label}"] += written
         self.counts.skipped_edges += len(buffer) - written
         buffer.clear()

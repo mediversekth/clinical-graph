@@ -30,6 +30,7 @@ class Vocabulary(StrEnum):
     ICD10 = "icd10"  # WHO ICD-10: target of the SNOMED International map
     ICDO3 = "icdo3"
     RXNORM = "rxnorm"
+    ATC = "atc"  # WHO ATC classification, from the RxNorm release
     CHEBI = "chebi"
 
 
@@ -120,13 +121,16 @@ class Mapping:
     """A directed binding from a concept to a concept of another vocabulary.
 
     ``provenance`` names the file or map the binding comes from, so bindings of
-    different origin and quality can be told apart in the graph.
+    different origin and quality can be told apart in the graph. ``key`` tells
+    apart several rows of one map between the same two concepts (e.g. the refset
+    member id); leave it unset when there is at most one.
     """
 
     source: str
     target: str
     equivalence: MappingEquivalence
     provenance: str
+    key: str | None = None
     properties: dict[str, PropertyValue] = field(
         default_factory=dict[str, PropertyValue], hash=False
     )

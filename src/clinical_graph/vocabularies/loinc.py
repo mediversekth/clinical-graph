@@ -16,14 +16,26 @@
   - ``IN_GROUP``: term -> group, group -> parent group
   - ``IN_PANEL``: term -> the panel it is a direct member of (``PanelsAndForms``)
 
-* Mappings (not implemented yet): ``PartRelatedCodeMapping.csv``, LOINC parts to
-  SNOMED CT, RxNorm, ChEBI and other systems.
+* Mappings: the SNOMED CT and RxNorm rows of ``PartRelatedCodeMapping.csv``,
+  LOINC part -> SNOMED CT concept (``loinc:LP14635-4`` -> ``snomed:...``) or
+  RxNorm concept (``rxnorm:<RXCUI>``, mostly ingredients), with the equivalence
+  LOINC publishes (FHIR ConceptMap codes: ``narrower`` = the target is narrower
+  than the part). LOINC terms have no map of their own; they reach SNOMED CT and
+  RxNorm through their parts. The rows to ChEBI, HGNC, NCBI, RadLex, UNII,
+  PubChem and ClinVar are not read: those vocabularies are not loaded.
 """
 
 from collections.abc import Iterator
 from typing import ClassVar
 
-from clinical_graph.model import Concept, Mapping, Relation, Vocabulary, concept_id
+from clinical_graph.model import (
+    Concept,
+    Mapping,
+    MappingEquivalence,
+    Relation,
+    Vocabulary,
+    concept_id,
+)
 from clinical_graph.vocabularies.base import VocabularyReader
 
 LOINC = "LoincTable/Loinc.csv"
@@ -38,6 +50,19 @@ GROUP = "AccessoryFiles/GroupFile/Group.csv"
 GROUP_TERMS = "AccessoryFiles/GroupFile/GroupLoincTerms.csv"
 PARENT_GROUP = "AccessoryFiles/GroupFile/ParentGroup.csv"
 PANELS = "AccessoryFiles/PanelsAndForms/PanelsAndForms.csv"
+PART_MAP = "AccessoryFiles/PartFile/PartRelatedCodeMapping.csv"
+
+SNOMED_SYSTEM = "http://snomed.info/sct"
+SNOMED_MAP_PROVENANCE = "LOINC part map to SNOMED CT (PartRelatedCodeMapping)"
+RXNORM_SYSTEM = "http://www.nlm.nih.gov/research/umls/rxnorm"
+RXNORM_MAP_PROVENANCE = "LOINC part map to RxNorm (PartRelatedCodeMapping)"
+_TARGETS = {
+    SNOMED_SYSTEM: (Vocabulary.SNOMED, SNOMED_MAP_PROVENANCE),
+    RXNORM_SYSTEM: (Vocabulary.RXNORM, RXNORM_MAP_PROVENANCE),
+}
+"""``ExtCodeSystem`` -> target vocabulary and provenance, for the systems loaded."""
+_CONTENT_ORIGIN = {"LN": "loinc", "Both": "loinc_snomed"}
+"""``ContentOrigin``: made by LOINC, or jointly by LOINC and SNOMED International."""
 
 _SKIPPED_LINKS = {("Search", "search"), ("Metadata", "category")}
 _AXIS_TYPES = {"TIME_ASPCT": "TIME", "SCALE_TYP": "SCALE", "METHOD_TYP": "METHOD"}
@@ -73,6 +98,10 @@ class LoincReader(VocabularyReader):
 
     source_key: ClassVar[str] = "loinc"
     vocabularies: ClassVar[tuple[Vocabulary, ...]] = (Vocabulary.LOINC,)
+    provenances: ClassVar[tuple[str, ...]] = (
+        SNOMED_MAP_PROVENANCE,
+        RXNORM_MAP_PROVENANCE,
+    )
 
     def iter_concepts(self) -> Iterator[Concept]:
         """Yield LOINC terms, parts, hierarchy nodes and groups."""
@@ -219,5 +248,26 @@ class LoincReader(VocabularyReader):
             )
 
     def iter_mappings(self) -> Iterator[Mapping]:
-        """Yield LOINC part -> external code mappings."""
-        raise NotImplementedError
+        """Yield the LOINC part -> SNOMED CT and -> RxNorm concept mappings.
+
+        At most one row per part and target, so no key is needed; a part can map
+        to several targets.
+        """
+        for row in self.read_csv(PART_MAP):
+            target = row["ExtCodeId"].strip()
+            system = _TARGETS.get(row["ExtCodeSystem"])
+            if system is None or not target:
+                continue
+            vocabulary, provenance = system
+            origin = row["ContentOrigin"].strip()
+            yield Mapping(
+                source=_lid(row["PartNumber"]),
+                target=concept_id(vocabulary, target),
+                equivalence=MappingEquivalence(row["Equivalence"].strip()),
+                provenance=provenance,
+                properties={
+                    "part_type": row["PartTypeName"] or None,
+                    "content_origin": _CONTENT_ORIGIN.get(origin, origin or None),
+                    "target_version": row["ExtCodeSystemVersion"] or None,
+                },
+            )

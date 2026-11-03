@@ -1,4 +1,13 @@
 {
+  "icd10": {
+    "files": {
+      "icd102019en.xml": {
+        "sha256": "00ca1cc9daa71857258beeae2f835088a1ede0c1da250380079f859b85c689bd",
+        "size": 9575324
+      }
+    },
+    "version": "2019"
+  },
   "icd10cm": {
     "files": {
       "2027-code-descriptions-tabular-order/Code Descriptions/icd10cm_codes_2027.txt": {
@@ -81,11 +90,85 @@
     },
     "version": "2.83"
   },
+  "loinc_extension": {
+    "files": {
+      "Full/Refset/Content/der2_cRefset_AssociationFull_LO1010000_20261021.txt": {
+        "sha256": "1bd295e7e89f6039db39c4eb6baa991cd77c3e8a43489dfea3ddf4965b508d6b",
+        "size": 1095
+      },
+      "Full/Terminology/sct2_Concept_Full_LO1010000_20261021.txt": {
+        "sha256": "f6ecadf4b5d54fe929d5f59ca12503cb85957d760938ef7cd36cc569096a31f8",
+        "size": 2842275
+      },
+      "Full/Terminology/sct2_Relationship_Full_LO1010000_20261021.txt": {
+        "sha256": "04e954a566e055014840ddd9d6e42a1800832d3ad9ec4b77fb725ff38ea8837a",
+        "size": 40346840
+      },
+      "Snapshot/Refset/Content/der2_cRefset_AssociationSnapshot_LO1010000_20261021.txt": {
+        "sha256": "5ba9afcbebd344b2578844c5af00031966bd0bd7760fbb38e2466a4fd94a98a6",
+        "size": 891
+      },
+      "Snapshot/Refset/Content/der2_cRefset_AttributeValueSnapshot_LO1010000_20261021.txt": {
+        "sha256": "ddcbe1e8c969ec6ae18374009ac32eba41e27b61241297822ebfaceb27f258b2",
+        "size": 20763
+      },
+      "Snapshot/Refset/Language/der2_cRefset_LanguageSnapshot-en_LO1010000_20261021.txt": {
+        "sha256": "efc23d99ff1fc0b54733af260d8c2666aa5627493db6e536bb819b607b7cad0d",
+        "size": 35858141
+      },
+      "Snapshot/Terminology/sct2_Concept_Snapshot_LO1010000_20261021.txt": {
+        "sha256": "80c25a49b824efb74b4eed9f02af503c4e467defbf9f2e017cdd18f8f7d52701",
+        "size": 2827239
+      },
+      "Snapshot/Terminology/sct2_Description_Snapshot-en_LO1010000_20261021.txt": {
+        "sha256": "fb4559fecdabc23d2d367b2d1ed5f8440a1e921b7d0186ef2be47faf764a4832",
+        "size": 49190153
+      },
+      "Snapshot/Terminology/sct2_Identifier_Snapshot_LO1010000_20261021.txt": {
+        "sha256": "d25de1db8fc97b2942701e983b620bf8bb35d7db53780aac9673a3c5c23d8c13",
+        "size": 2952354
+      },
+      "Snapshot/Terminology/sct2_Relationship_Snapshot_LO1010000_20261021.txt": {
+        "sha256": "4aa5463ba8f732c49878979a15520400630930259db4746900ca74be7d91b230",
+        "size": 38054194
+      },
+      "Snapshot/Terminology/sct2_TextDefinition_Snapshot-en_LO1010000_20261021.txt": {
+        "sha256": "2bd817bf7576950ee0530909231bd03ea4e385fd641ab337f82e51bc3ed210da",
+        "size": 883
+      }
+    },
+    "version": "20261021"
+  },
+  "rxnorm": {
+    "files": {
+      "rrf/RXNCONSO.RRF": {
+        "sha256": "a1de9bfcb8fcdc10b984b181e14d640b22ed6409f68550a2ed9f800f43091072",
+        "size": 132929423
+      },
+      "rrf/RXNCUI.RRF": {
+        "sha256": "0062288b882797d18d8846259f8570be7957f0f94cfec6d835c60d2361b54962",
+        "size": 1745274
+      },
+      "rrf/RXNREL.RRF": {
+        "sha256": "90094cc0127790559f9fdceb4c97e578bfb5717532fe76cc4867b574565e198a",
+        "size": 534266657
+      },
+      "rrf/RXNSAT.RRF": {
+        "sha256": "17c7485f9af47cf0be2cce27c3bd14d894b63ef438831167e480cd34209790c1",
+        "size": 563132548
+      }
+    },
+    "version": "20261102"
+  },
   "snomed": {
     "files": {
       "Full/Refset/Content/der2_cRefset_AssociationFull_INT_20250901.txt": {
         "sha256": "7ff85aa7fe13fb1ec1e43041beb57d99f5e392d2855f58f395b57cf31f24f851",
         "size": 28176725
+      },
+      "Full/Refset/Map/der2_iisssccRefset_ExtendedMapFull_INT_20250901.txt": {
+        "sha256": "7fd1cc5e2e8998261543d0fd2606a65ad41227cdea5a6a7ecb4233e483ceefa8",
+        "size": 52121788
       },
       "Full/Terminology/sct2_Concept_Full_INT_20250901.txt": {
         "sha256": "5f637038b27d19d8262ce4a76b1cf024cc4ad92f0137d515d1d66ce3d0d7c253",
@@ -137,5 +220,14 @@
       }
     },
     "version": "20250901"
+  },
+  "snomed_icd10cm": {
+    "files": {
+      "tls_Icd10cmHumanReadableMap_US1000124_20260901.tsv": {
+        "sha256": "f8591dbdd6a85eaec3f7e4f20e97b04b2bcf3bf90a0765e5d898eaf51275f677",
+        "size": 111233162
+      }
+    },
+    "version": "20260901"
   }
 }

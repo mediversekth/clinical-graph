@@ -12,7 +12,8 @@ uv run ruff check . && uv run ruff format .
 uv run pyright                      # strict
 uv run clinical-graph sources verify
 uv run clinical-graph ingest --dry-run   # readers only, no Neo4j
-uv run clinical-graph ingest [snomed loinc icd10cm] [--replace]
+uv run clinical-graph ingest [snomed loinc_extension loinc icd10cm icd10 rxnorm] [--replace]
+uv run clinical-graph bind [snomed snomed_icd10cm loinc loinc_extension rxnorm] [--dry-run] [--replace]   # MAPS_TO, after ingest
 ```
 
 ## Conventions
@@ -31,11 +32,24 @@ uv run clinical-graph ingest [snomed loinc icd10cm] [--replace]
 - Reader file paths are templates: `{v}` is filled from the source's `version`.
 - Neo4j: the Community instance from mediverse, one shared database. Every node
   here is `:Concept` plus a vocabulary label (`SNOMEDCT`, `LOINC`, `ICD10CM`,
-  `ICD10PCS`); never touch nodes without `:Concept`. `GraphWriter` only writes edges
-  whose endpoints share a vocabulary label; cross-vocabulary bindings are a separate
-  step. Schema: `docs/graph_schema.md` (keep it in sync).
+  `ICD10PCS`, `ICD10`, `RXNORM`, `ATC`); never touch nodes without `:Concept`. Relations only join
+  nodes with the same vocabulary label; the only edges across vocabularies are
+  `MAPS_TO`, written by `bind` from readers' `iter_mappings` after resolving each
+  target with the target reader's `match`. Schema: `docs/graph_schema.md` (keep it
+  in sync).
 - SNOMED CT keeps its history: inactive concepts *and* inactive edges are loaded
   (`active: false`), so Cypher over `SNOMEDCT` edges must filter `r.active` for the
   current release. Edges are keyed by RF2 relationship / refset member `id`.
-- The SNOMED International map targets WHO ICD-10 (`Vocabulary.ICD10`), not ICD-10-CM.
+- The SNOMED International map targets WHO ICD-10 (`Vocabulary.ICD10`), not ICD-10-CM;
+  SNOMED -> ICD-10-CM is NLM's map, its own map-only source `snomed_icd10cm`
+  (reader with no `vocabularies`, skipped by `ingest`). `bind --replace` deletes by
+  the reader's `provenances`.
+- The SNOMED CT LOINC Extension (`loinc_extension`, `LoincExtensionReader`, a
+  `SnomedReader` on `_LO1010000_` files) adds `SNOMEDCT` nodes with
+  `extension: "loinc"`; `ingest --replace` deletes by reader `extension` (`None` =
+  nodes without one), so `snomed` and `loinc_extension` never delete each other's
+  nodes.
+- RxNorm (`rxnorm`) brings two vocabularies, `RXNORM` and `ATC` (the ATC atoms of
+  the release); RxNorm keeps obsolete concepts (`active: false`), and an RxNorm
+  edge's `active` is "both ends current".
 - No tests: the user does not want them. New commands go in `cli.py`.

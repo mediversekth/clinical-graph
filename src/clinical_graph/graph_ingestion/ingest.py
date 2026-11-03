@@ -18,23 +18,42 @@ from clinical_graph.vocabularies import READERS
 log = logging.getLogger(__name__)
 
 
-def delete_vocabulary(driver: Driver, database: str, vocabulary: Vocabulary) -> int:
-    """Delete every node of one vocabulary graph and its relationships.
+def _vocabulary_sources() -> list[str]:
+    """Keys of the readers that load a vocabulary graph (not map-only sources)."""
+    return [key for key, cls in READERS.items() if cls.vocabularies]
+
+
+def delete_vocabulary(
+    driver: Driver,
+    database: str,
+    vocabulary: Vocabulary,
+    extension: str | None = None,
+) -> int:
+    """Delete the nodes of one vocabulary graph and their relationships.
 
     Only nodes with both the ``Concept`` label and the vocabulary's label are
     touched; other data in the database is left alone.
+
+    Args:
+        driver: The Neo4j driver.
+        database: The database name.
+        vocabulary: Whose nodes to delete.
+        extension: Delete only the nodes of this extension (``extension``
+            property); ``None`` deletes only the nodes that belong to none, so
+            replacing SNOMED CT keeps the LOINC Extension and vice versa.
 
     Returns:
         The number of nodes deleted.
     """
     label = LABELS[vocabulary]
+    where = "n.extension = $extension" if extension else "n.extension IS NULL"
     query = (
-        f"MATCH (n:{CONCEPT_LABEL}:{label}) "
+        f"MATCH (n:{CONCEPT_LABEL}:{label}) WHERE {where} "
         f"CALL (n) {{ DETACH DELETE n }} IN TRANSACTIONS OF 10000 ROWS "
         f"RETURN count(n) AS n"
     )
     with driver.session(database=database) as session:  # pyright: ignore[reportUnknownMemberType]
-        record = session.run(cast(LiteralString, query)).single()
+        record = session.run(cast(LiteralString, query), extension=extension).single()
     return int(record["n"]) if record else 0
 
 
@@ -58,7 +77,7 @@ def ingest(
     Returns:
         Write counts per source key.
     """
-    keys = list(source_keys or READERS)
+    keys = list(source_keys or _vocabulary_sources())
     unknown = [k for k in keys if k not in READERS]
     if unknown:
         raise ValueError(f"no reader for {unknown}; known: {sorted(READERS)}")
@@ -72,7 +91,9 @@ def ingest(
             reader = READERS[key](manifest[key])
             if replace:
                 for vocabulary in reader.vocabularies:
-                    n = delete_vocabulary(driver, settings.database, vocabulary)
+                    n = delete_vocabulary(
+                        driver, settings.database, vocabulary, reader.extension
+                    )
                     log.info("[%s] deleted %d %s nodes", key, n, LABELS[vocabulary])
 
             writer = GraphWriter(driver, settings.database, batch_size)
@@ -106,10 +127,16 @@ def dry_run(source_keys: Iterable[str] | None = None) -> dict[str, dict[str, int
     """
     manifest = load_manifest()
     results: dict[str, dict[str, int]] = {}
-    for key in source_keys or READERS:
+    for key in source_keys or _vocabulary_sources():
         reader = READERS[key](manifest[key])
         counts: Counter[str] = Counter()
         ids: set[str] = set()
+        if reader.extension:  # its edges also join the base vocabulary's nodes
+            for cls in READERS.values():
+                if cls.extension is None and set(cls.vocabularies) & set(
+                    reader.vocabularies
+                ):
+                    ids |= cls(manifest[cls.source_key]).concept_ids
         for concept in reader.iter_concepts():
             counts[f"nodes:{LABELS[concept.vocabulary]}"] += 1
             ids.add(concept.id)
