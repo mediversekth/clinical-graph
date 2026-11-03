@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clinical-graph"
+version = "0.1.0"
+description = "A graph of clinical vocabularies (SNOMED CT, LOINC, ICD-10-CM/PCS) and their bindings"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "Andra Ionescu", email = "adio@kth.se" }]
+requires-python = ">=3.13"
+dependencies = [
+    "neo4j>=6.4.1",
+    "python-dotenv>=1.2.4",
+]
+
+[project.scripts]
+clinical-graph = "clinical_graph.cli:main"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12",
+    "pyright>=1.1.400",
+    "pre-commit>=4.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clinical_graph"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "D"]
+ignore = ["D105", "D107"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.pyright]
+include = ["src"]
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
+

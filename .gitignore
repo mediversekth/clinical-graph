@@ -218,3 +218,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Vocabulary releases and generated graph (see docs/sources.md)
+/data/

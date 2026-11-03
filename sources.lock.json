@@ -1,0 +1,233 @@
+{
+  "icd10": {
+    "files": {
+      "icd102019en.xml": {
+        "sha256": "00ca1cc9daa71857258beeae2f835088a1ede0c1da250380079f859b85c689bd",
+        "size": 9575324
+      }
+    },
+    "version": "2019"
+  },
+  "icd10cm": {
+    "files": {
+      "2027-code-descriptions-tabular-order/Code Descriptions/icd10cm_codes_2027.txt": {
+        "sha256": "3c0583a38ee0e848f7dc0ac8ce88e8f001bbba8c6385ed825d44d46f6e5297c9",
+        "size": 6425201
+      },
+      "2027-code-descriptions-tabular-order/Code Descriptions/icd10cm_order_2027.txt": {
+        "sha256": "38981fb2c1226e2b92393cef7d921d2293494dd184b5ad039dde08e4b364265f",
+        "size": 14724229
+      },
+      "2027-code-tables-tabular-index/Table and Index/icd10cm_index_2027.xml": {
+        "sha256": "248e4a133996f986ba98821a411f0e8afee632a2de1d98f23e02fba8b6fd8a15",
+        "size": 9707127
+      },
+      "2027-code-tables-tabular-index/Table and Index/icd10cm_tabular_2027.xml": {
+        "sha256": "d778c97a5bb9da7d71645610e277f8db3bd302befa3b08d71dd5043715a74b2a",
+        "size": 9779494
+      },
+      "2027-icd-10-pcs-order-file-long-abbreviated-titles/icd10pcs_order_2027.txt": {
+        "sha256": "f564ff1f9cc8a000124f7943633f15847ce45ef35e2fbc3e99bbbb5b43c8af6c",
+        "size": 12169545
+      }
+    },
+    "version": "2027"
+  },
+  "loinc": {
+    "files": {
+      "AccessoryFiles/AnswerFile/AnswerList.csv": {
+        "sha256": "9ae792e331b8e45184188c82196d74643abbdef83ddbb912bae2e1e803f1f6a0",
+        "size": 8323077
+      },
+      "AccessoryFiles/AnswerFile/LoincAnswerListLink.csv": {
+        "sha256": "7edbc7808e795313362cea5e0c32e782122a845ce7d5bd9cfb183297de568abc",
+        "size": 3946140
+      },
+      "AccessoryFiles/ComponentHierarchyBySystem/ComponentHierarchyBySystem.csv": {
+        "sha256": "ee4ea05969b3fa84f25d9800bd66210b8078fa87f5f25849955414c3949a687a",
+        "size": 24046592
+      },
+      "AccessoryFiles/GroupFile/Group.csv": {
+        "sha256": "6e8d93ca5788da88f8c4c7902a1dd05b04abef5f0812a722b50b769920d448be",
+        "size": 674019
+      },
+      "AccessoryFiles/GroupFile/GroupLoincTerms.csv": {
+        "sha256": "fd9788db62aeace77b4a752d22b84168cf1b1714f0e350fa621bdbbfab83fcbb",
+        "size": 4501269
+      },
+      "AccessoryFiles/GroupFile/ParentGroup.csv": {
+        "sha256": "5b9d7d2f11bb510c991e5440ed8c403e91251b3d6a7539bcaccf075a3754ea4e",
+        "size": 4130
+      },
+      "AccessoryFiles/PanelsAndForms/PanelsAndForms.csv": {
+        "sha256": "54451baebd4e6f116edfc44024fc5ea2a005e32a56ad72514c31278cff9ce7d4",
+        "size": 34791992
+      },
+      "AccessoryFiles/PartFile/LoincPartLink_Primary.csv": {
+        "sha256": "31e2db4ad083c56829951464d521956fb3bbd6ab9f207b5e9f39423363617578",
+        "size": 118680671
+      },
+      "AccessoryFiles/PartFile/LoincPartLink_Supplementary.csv": {
+        "sha256": "10e794d92523c426b141be744d2613a5b7ea9f172ac97b48517fe7648f0272e4",
+        "size": 246622108
+      },
+      "AccessoryFiles/PartFile/Part.csv": {
+        "sha256": "743dff07ad47bc5eeb4854864ebb2a5ed883112df8d49e21b0fad9bf60ad6c77",
+        "size": 8038858
+      },
+      "AccessoryFiles/PartFile/PartRelatedCodeMapping.csv": {
+        "sha256": "c7847f11f9e05091381181c5e5665e351d15a07143d13eeb69246e0f436c6beb",
+        "size": 9760306
+      },
+      "LoincTable/Loinc.csv": {
+        "sha256": "5de1463f0fe65d6c97867153b43151a07ce3f8c8a86de681f98e110008032aba",
+        "size": 84205426
+      },
+      "LoincTable/MapTo.csv": {
+        "sha256": "775bab444c9c617edc7e6cf4e5f775a500f0391956552f40b2635ef7209ceeb0",
+        "size": 122901
+      }
+    },
+    "version": "2.83"
+  },
+  "loinc_extension": {
+    "files": {
+      "Full/Refset/Content/der2_cRefset_AssociationFull_LO1010000_20261021.txt": {
+        "sha256": "1bd295e7e89f6039db39c4eb6baa991cd77c3e8a43489dfea3ddf4965b508d6b",
+        "size": 1095
+      },
+      "Full/Terminology/sct2_Concept_Full_LO1010000_20261021.txt": {
+        "sha256": "f6ecadf4b5d54fe929d5f59ca12503cb85957d760938ef7cd36cc569096a31f8",
+        "size": 2842275
+      },
+      "Full/Terminology/sct2_Relationship_Full_LO1010000_20261021.txt": {
+        "sha256": "04e954a566e055014840ddd9d6e42a1800832d3ad9ec4b77fb725ff38ea8837a",
+        "size": 40346840
+      },
+      "Snapshot/Refset/Content/der2_cRefset_AssociationSnapshot_LO1010000_20261021.txt": {
+        "sha256": "5ba9afcbebd344b2578844c5af00031966bd0bd7760fbb38e2466a4fd94a98a6",
+        "size": 891
+      },
+      "Snapshot/Refset/Content/der2_cRefset_AttributeValueSnapshot_LO1010000_20261021.txt": {
+        "sha256": "ddcbe1e8c969ec6ae18374009ac32eba41e27b61241297822ebfaceb27f258b2",
+        "size": 20763
+      },
+      "Snapshot/Refset/Language/der2_cRefset_LanguageSnapshot-en_LO1010000_20261021.txt": {
+        "sha256": "efc23d99ff1fc0b54733af260d8c2666aa5627493db6e536bb819b607b7cad0d",
+        "size": 35858141
+      },
+      "Snapshot/Terminology/sct2_Concept_Snapshot_LO1010000_20261021.txt": {
+        "sha256": "80c25a49b824efb74b4eed9f02af503c4e467defbf9f2e017cdd18f8f7d52701",
+        "size": 2827239
+      },
+      "Snapshot/Terminology/sct2_Description_Snapshot-en_LO1010000_20261021.txt": {
+        "sha256": "fb4559fecdabc23d2d367b2d1ed5f8440a1e921b7d0186ef2be47faf764a4832",
+        "size": 49190153
+      },
+      "Snapshot/Terminology/sct2_Identifier_Snapshot_LO1010000_20261021.txt": {
+        "sha256": "d25de1db8fc97b2942701e983b620bf8bb35d7db53780aac9673a3c5c23d8c13",
+        "size": 2952354
+      },
+      "Snapshot/Terminology/sct2_Relationship_Snapshot_LO1010000_20261021.txt": {
+        "sha256": "4aa5463ba8f732c49878979a15520400630930259db4746900ca74be7d91b230",
+        "size": 38054194
+      },
+      "Snapshot/Terminology/sct2_TextDefinition_Snapshot-en_LO1010000_20261021.txt": {
+        "sha256": "2bd817bf7576950ee0530909231bd03ea4e385fd641ab337f82e51bc3ed210da",
+        "size": 883
+      }
+    },
+    "version": "20261021"
+  },
+  "rxnorm": {
+    "files": {
+      "rrf/RXNCONSO.RRF": {
+        "sha256": "a1de9bfcb8fcdc10b984b181e14d640b22ed6409f68550a2ed9f800f43091072",
+        "size": 132929423
+      },
+      "rrf/RXNCUI.RRF": {
+        "sha256": "0062288b882797d18d8846259f8570be7957f0f94cfec6d835c60d2361b54962",
+        "size": 1745274
+      },
+      "rrf/RXNREL.RRF": {
+        "sha256": "90094cc0127790559f9fdceb4c97e578bfb5717532fe76cc4867b574565e198a",
+        "size": 534266657
+      },
+      "rrf/RXNSAT.RRF": {
+        "sha256": "17c7485f9af47cf0be2cce27c3bd14d894b63ef438831167e480cd34209790c1",
+        "size": 563132548
+      }
+    },
+    "version": "20261102"
+  },
+  "snomed": {
+    "files": {
+      "Full/Refset/Content/der2_cRefset_AssociationFull_INT_20250901.txt": {
+        "sha256": "7ff85aa7fe13fb1ec1e43041beb57d99f5e392d2855f58f395b57cf31f24f851",
+        "size": 28176725
+      },
+      "Full/Refset/Map/der2_iisssccRefset_ExtendedMapFull_INT_20250901.txt": {
+        "sha256": "7fd1cc5e2e8998261543d0fd2606a65ad41227cdea5a6a7ecb4233e483ceefa8",
+        "size": 52121788
+      },
+      "Full/Terminology/sct2_Concept_Full_INT_20250901.txt": {
+        "sha256": "5f637038b27d19d8262ce4a76b1cf024cc4ad92f0137d515d1d66ce3d0d7c253",
+        "size": 42586173
+      },
+      "Full/Terminology/sct2_Relationship_Full_INT_20250901.txt": {
+        "sha256": "d7c7b0f4b2c7738f2d074ba2b2dbf85c7198bf3ffd52af5f3a35213a1ef1a1c7",
+        "size": 742293711
+      },
+      "Snapshot/Refset/Content/der2_cRefset_AssociationSnapshot_INT_20250901.txt": {
+        "sha256": "50a15ee484fc34294f3c63ff3b4e0c16e10093b13e9080e255bc77b7bbdbd7ca",
+        "size": 23172960
+      },
+      "Snapshot/Refset/Content/der2_cRefset_AttributeValueSnapshot_INT_20250901.txt": {
+        "sha256": "6e43e62929ded5b5f950bbffc6319e548d4d21ba007e0168a8fda6e4aac5d7b9",
+        "size": 84184143
+      },
+      "Snapshot/Refset/Language/der2_cRefset_LanguageSnapshot-en_INT_20250901.txt": {
+        "sha256": "ba814b67506adff616766fbc2fd69bfaf33cdacb8ff7a26df7f32295d3ab0e1d",
+        "size": 383291031
+      },
+      "Snapshot/Refset/Map/der2_iisssccRefset_ExtendedMapSnapshot_INT_20250901.txt": {
+        "sha256": "c92b9cfac3d8d8203ddc9ff1702b960f1c18b9ddbafd06daf437dd699fa6c80b",
+        "size": 35669557
+      },
+      "Snapshot/Refset/Map/der2_sRefset_SimpleMapSnapshot_INT_20250901.txt": {
+        "sha256": "35179990b5b296128af14d2997449d3fe494e5d5224781adb4dd2ef594237666",
+        "size": 56770949
+      },
+      "Snapshot/Terminology/sct2_Concept_Snapshot_INT_20250901.txt": {
+        "sha256": "99c4e127d280b1ebcf7583d5184df7a330a35d37219cf40a2a6aa5d927039e16",
+        "size": 31623512
+      },
+      "Snapshot/Terminology/sct2_Description_Snapshot-en_INT_20250901.txt": {
+        "sha256": "733c84a0a21031ea1219992a3b7fa5a8d7aa1c3efc4d438c7bdd5d0b3cfb8926",
+        "size": 224787792
+      },
+      "Snapshot/Terminology/sct2_RelationshipConcreteValues_Snapshot_INT_20250901.txt": {
+        "sha256": "8a9c3f05e15635a009506feb60bef081becf89d8916f1ba92f7b6f259d2fb608",
+        "size": 4013411
+      },
+      "Snapshot/Terminology/sct2_Relationship_Snapshot_INT_20250901.txt": {
+        "sha256": "dd2c9d011c00e13b709190984e398daeb1ca713bb414e87ad5edac2eecbb0e31",
+        "size": 394147735
+      },
+      "Snapshot/Terminology/sct2_TextDefinition_Snapshot-en_INT_20250901.txt": {
+        "sha256": "6d24879482fce083cd73e72dfde99b8dfd429b260ebca2d6f9306776d88b77a5",
+        "size": 8243394
+      }
+    },
+    "version": "20250901"
+  },
+  "snomed_icd10cm": {
+    "files": {
+      "tls_Icd10cmHumanReadableMap_US1000124_20260901.tsv": {
+        "sha256": "f8591dbdd6a85eaec3f7e4f20e97b04b2bcf3bf90a0765e5d898eaf51275f677",
+        "size": 111233162
+      }
+    },
+    "version": "20260901"
+  }
+}
