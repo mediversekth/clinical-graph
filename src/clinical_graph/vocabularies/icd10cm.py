@@ -5,7 +5,10 @@
   - ICD-10-CM (``Vocabulary.ICD10CM``): chapters (``icd10cm:chapter:4``), blocks
     (tabular ``<section>``, ``icd10cm:block:E08-E13``) and every code of the order
     file, headers and 7-character codes included, with the published dot
-    (``icd10cm:E11.9``). Inclusion terms of the tabular become synonyms.
+    (``icd10cm:E11.9``). Inclusion terms of the tabular become synonyms; the
+    entries of the alphabetic index that point to a code, if the index is
+    present, its ``index_terms`` (subterms joined to their parents: ``Diabetes,
+    diabetic type 2 with ketoacidosis``).
   - ICD-10-PCS (``Vocabulary.ICD10PCS``): tables (first three characters,
     ``icd10pcs:table:001``) and codes.
 
@@ -37,6 +40,7 @@ log = logging.getLogger(__name__)
 
 CM_ORDER = "{v}-code-descriptions-tabular-order/Code Descriptions/icd10cm_order_{v}.txt"
 CM_TABULAR = "{v}-code-tables-tabular-index/Table and Index/icd10cm_tabular_{v}.xml"
+CM_INDEX = "{v}-code-tables-tabular-index/Table and Index/icd10cm_index_{v}.xml"
 PCS_ORDER = "{v}-icd-10-pcs-order-file-long-abbreviated-titles/icd10pcs_order_{v}.txt"
 
 NOTE_TYPES = {
@@ -85,6 +89,26 @@ def _parent(code: str, codes: set[str]) -> str | None:
             return prefix
         prefix = prefix[:-1]
     return None
+
+
+def _title_text(title: ET.Element | None) -> str:
+    """An index title without its ``<nemod>`` (nonessential modifier) parts."""
+    if title is None:
+        return ""
+    parts = [title.text or ""] + [child.tail or "" for child in title]
+    return " ".join(" ".join(parts).split())
+
+
+def _walk_index(
+    term: ET.Element, path: tuple[str, ...], terms: defaultdict[str, list[str]]
+) -> None:
+    """Collect the text of ``term`` and its subterms under the code each gives."""
+    path = (*path, _title_text(term.find("title")))
+    code = (term.findtext("code") or "").strip()
+    if code and "-" not in code:  # a complete code, not E11.- or S72.001-
+        terms[code].append(" ".join(p for p in path if p))
+    for child in term.findall("term"):
+        _walk_index(child, path, terms)
 
 
 @dataclass
@@ -141,6 +165,17 @@ class Icd10CmReader(VocabularyReader):
         return {display_code(r.code, Vocabulary.ICD10CM) for r in self._cm_codes}
 
     @cached_property
+    def _index_terms(self) -> dict[str, list[str]]:
+        """Code -> alphabetic index entries that point to it (empty if no index)."""
+        if not self.has(CM_INDEX):
+            return {}
+        terms: defaultdict[str, list[str]] = defaultdict(list)
+        root = ET.parse(self.path(CM_INDEX)).getroot()  # nosec B314 - trusted CMS file
+        for main_term in root.iter("mainTerm"):
+            _walk_index(main_term, (), terms)
+        return terms
+
+    @cached_property
     def _tabular(self) -> _Tabular:
         tab = _Tabular()
         root = ET.parse(self.path(CM_TABULAR)).getroot()  # nosec B314 - trusted CMS file
@@ -185,6 +220,7 @@ class Icd10CmReader(VocabularyReader):
                 Vocabulary.ICD10CM, block, title, kind="block",
                 key=f"block:{block}", properties={"chapter": chapter},
             )  # fmt: skip
+        index_terms = self._index_terms
         for row in self._cm_codes:
             code = display_code(row.code, Vocabulary.ICD10CM)
             yield Concept(
@@ -197,6 +233,7 @@ class Icd10CmReader(VocabularyReader):
                     "billable": row.billable,
                     "code_no_dot": row.code,
                     "short_name": row.short_title,
+                    "index_terms": list(dict.fromkeys(index_terms.get(code, ()))),
                 },
             )
 
@@ -287,19 +324,41 @@ class Icd10CmReader(VocabularyReader):
                 missed += not span
         return targets, missed
 
-    def match(self, vocabulary: Vocabulary, code: str) -> tuple[str, str] | None:
-        """Resolve a map target to an ICD-10-CM code (ICD-10-PCS: exact only).
+    @cached_property
+    def _ranges(self) -> dict[str, str]:
+        """ICD-10-CM block and chapter range (``E08-E13``, ``E00-E89``) -> id."""
+        tab = self._tabular
+        ranges = {r: _cm(f"chapter:{n}") for n, r, _ in tab.chapters if r}
+        ranges |= {b: _cm(f"block:{b}") for b, _, _ in tab.blocks}
+        return ranges
 
-        Tried in order: the code as given (``exact``); trimmed and upper-cased
-        (``normalised``); the longest prefix that is a code (``ancestor``): a
-        code retired from this release, or a target whose 7th character is left
-        open (``S72.001?`` -> ``S72.001``, ``M48.40X?`` -> ``M48.40``).
+    def match(self, vocabulary: Vocabulary, code: str) -> tuple[str, str] | None:
+        """Resolve a code published elsewhere to an ICD-10-CM / ICD-10-PCS concept.
+
+        ICD-10-CM, tried in order: the code as given (``exact``), or a block or
+        chapter by its range (``E08-E13``; UMLS writes one-category blocks as
+        ``F99-F99``); trimmed and upper-cased (``normalised``); the longest
+        prefix that is a code (``ancestor``): a code retired from this release,
+        or a target whose 7th character is left open (``S72.001?`` ->
+        ``S72.001``, ``M48.40X?`` -> ``M48.40``). ICD-10-PCS: the code, or the
+        table of a 3-character code (``08P``), both ``exact``.
 
         Returns:
             The concept id and how it matched, or ``None``.
         """
-        if vocabulary is not Vocabulary.ICD10CM:
+        if vocabulary is Vocabulary.ICD10PCS:
+            if len(code) == 3:
+                table = concept_id(Vocabulary.ICD10PCS, f"table:{code}")
+                return (table, "exact") if table in self.concept_ids else None
             return super().match(vocabulary, code)
+        if vocabulary is not Vocabulary.ICD10CM:
+            return None
+        if "-" in code:
+            start, _, end = code.strip().upper().partition("-")
+            found = self._ranges.get(code) or self._ranges.get(
+                start if start == end else f"{start}-{end}"
+            )
+            return (found, "exact") if found else None
         codes = self._codes
         if code in codes:
             return _cm(code), "exact"

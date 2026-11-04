@@ -1,7 +1,7 @@
 # Sources
 
-The graph is built from five vocabulary releases (RxNorm also brings ATC), one
-SNOMED CT extension and one map release. None of them is stored in this
+The graph is built from six vocabulary releases (RxNorm also brings ATC), one
+SNOMED CT extension, one map release and the UMLS Metathesaurus (links only). None of them is stored in this
 repository: two need a (free) licence, and all are large. This page says what to
 download, where to put it, and how to check you have the same files.
 
@@ -16,7 +16,9 @@ used for the current build.
 | `loinc` | LOINC | 2.83 | LOINC licence | ~1.0 GB |
 | `icd10cm` | ICD-10-CM + ICD-10-PCS (CMS, US) | FY2027 | Public domain | ~150 MB |
 | `icd10` | ICD-10 (WHO), ClaML | 2019 | WHO terms of use | ~10 MB |
+| `icf` | ICF (WHO), simple tabulation | 2026-01 | CC BY-ND 3.0 IGO | ~0.5 MB |
 | `rxnorm` | RxNorm Full Monthly Release (with ATC) | 2026-11-02 | UMLS licence (+ SNOMED CT for its SNOMED atoms) | ~1.3 GB |
+| `umls` | UMLS Metathesaurus, `MRCONSO.RRF` only | 2026AA | UMLS licence | ~2.3 GB (`MRCONSO`) |
 | `snomed_icd10cm` | SNOMED CT to ICD-10-CM Map (NLM), human-readable | 2026-09-01 | UMLS + SNOMED CT licence | ~110 MB |
 
 ## Directory layout
@@ -43,6 +45,11 @@ data/raw/
 ├── icd10/
 │   └── 2019/                                                   # unzipped icd102019en.xml.zip
 │       └── icd102019en.xml
+├── icf/
+│   └── 2026-01/                                                # unzipped SimpleTabulation-ICF-en.zip
+│       └── SimpleTabulation-ICF-en.txt
+├── umls/
+│   └── 2026AA/META/MRCONSO.RRF                                 # assembled, see UMLS below
 ├── RxNorm_full_11022026/                                     # unzipped RxNorm_full_11022026.zip
 │   └── rrf/
 ├── SnomedCT_LOINCExtension_PRODUCTION_LO1010000_20261021T120000Z/  # unzipped as-is
@@ -123,6 +130,7 @@ Files used:
 | `AccessoryFiles/ComponentHierarchyBySystem/ComponentHierarchyBySystem.csv` | component hierarchy |
 | `AccessoryFiles/GroupFile/{Group,GroupLoincTerms,ParentGroup}.csv` | groups (optional) |
 | `AccessoryFiles/PanelsAndForms/PanelsAndForms.csv` | panel membership (optional) |
+| `AccessoryFiles/ConsumerName/ConsumerName.csv` | consumer names of the terms (optional) |
 | `AccessoryFiles/AnswerFile/{AnswerList,LoincAnswerListLink}.csv` | answer lists (optional) |
 
 ## ICD-10-CM and ICD-10-PCS (US)
@@ -149,7 +157,7 @@ Files used:
 | `2027-code-tables-tabular-index/Table and Index/icd10cm_tabular_2027.xml` | chapters, blocks, codes, tabular notes |
 | `2027-code-descriptions-tabular-order/Code Descriptions/icd10cm_order_2027.txt` | all codes + headers with titles |
 | `2027-code-descriptions-tabular-order/Code Descriptions/icd10cm_codes_2027.txt` | billable codes (optional) |
-| `2027-code-tables-tabular-index/Table and Index/icd10cm_index_2027.xml` | alphabetic index (optional) |
+| `2027-code-tables-tabular-index/Table and Index/icd10cm_index_2027.xml` | alphabetic index: index terms of the codes (optional) |
 | `2027-icd-10-pcs-order-file-long-abbreviated-titles/icd10pcs_order_2027.txt` | ICD-10-PCS codes + table headers |
 
 This is the **US clinical modification**, not WHO ICD-10. The two share most
@@ -182,6 +190,35 @@ reader reproduces every code and title of the text edition.
 
 The SNOMED CT map targets the 2016 edition; codes deleted by 2019 fall back to
 their broader code (see `docs/graph_schema.md`, *Bindings*).
+
+## ICF (WHO)
+
+- **Publisher:** World Health Organization
+- **Release:** ICF, 2026-01 release of the WHO ICD-11 platform (ICF is updated
+  with it; the release id is in the download URL). WHO no longer publishes ICF
+  as ClaML: the *simple tabulation* is the only file download.
+- **Licence:** WHO: "the same rules apply for ICF as for ICD", i.e. ICD-11's
+  CC BY-ND 3.0 IGO. No account needed.
+- **Download:** the [ICF browser](https://icd.who.int/browse/latest-release/icf/en),
+  *Info* menu, *Spreadsheet File*:
+
+  ```bash
+  mkdir -p data/raw/icf/2026-01 && cd data/raw/icf/2026-01
+  curl -fLO https://icdcdn.who.int/static/releasefiles/2026-01/SimpleTabulation-ICF-en.zip
+  unzip -q SimpleTabulation-ICF-en.zip
+  ```
+
+Files used:
+
+| File | Used for |
+| --- | --- |
+| `SimpleTabulation-ICF-en.txt` | sections, components, chapters, blocks, categories and qualifiers, with their parents and Foundation / linearization URIs |
+
+Not read: `SimpleTabulation-ICF-en.xlsx` (the same table) and `readme.txt`. The
+tabulation has no definitions, inclusions or exclusions; those are only in the
+[ICD API](https://icd.who.int/docs/icd-api/APIDoc-Version2/) (linearization
+`icf`, free registration). ICF publishes no maps to other vocabularies; it is
+linked through UMLS (`ICF` and `ICF-CY` 2008 in UMLS 2026AA).
 
 ## SNOMED CT LOINC Extension (LOINC Ontology)
 
@@ -301,6 +338,47 @@ Not read: the other drug sources in the release (Multum, Micromedex, First
 Databank, Gold Standard, VANDF, DrugBank, CVX, FDA SPL, USP), `RXNATOMARCHIVE`
 (retired atoms) and the AUI-level relationships.
 
+## UMLS Metathesaurus
+
+- **Publisher:** U.S. National Library of Medicine
+- **Release:** 2026AA (May 2026). NLM releases in May (AA) and November (AB).
+- **Licence:** UMLS Metathesaurus Licence (free, UTS account). Each source keeps
+  its own restriction level (licence Appendix 2): here SNOMEDCT_US 9 (SNOMED CT
+  affiliate licence), ICD10 3, ICD10CM, ICF and ICF-CY 4 (WHO-derived), LNC,
+  RXNORM, ATC, ICD10PCS 0. Only codes and CUIs are used, no UMLS strings; the codes themselves
+  come from the releases above. Don't redistribute.
+- **Download:** sign in to [UTS](https://uts.nlm.nih.gov/), then on
+  [UMLS Knowledge Sources](https://www.nlm.nih.gov/research/umls/licensedcontent/umlsknowledgesources.html)
+  take either
+  - **UMLS Metathesaurus Full Subset** (`umls-<release>-metathesaurus-full.zip`):
+    unzip it and move its `<release>/META` folder to `data/raw/umls/<release>/META`;
+    or
+  - the **full release** (`umls-<release>-full.zip`, ~5.7 GB, what this build used).
+    Its Metathesaurus is in nested archives; assemble `MRCONSO.RRF` without
+    MetamorphoSys:
+
+    ```bash
+    cd data/raw && mkdir -p umls && cd umls
+    unzip ../umls-2026AA-full.zip '2026AA-full/2026aa-*-meta.nlm'
+    for f in 2026AA-full/*-meta.nlm; do unzip -o "$f" '2026AA/META/MRCONSO.RRF.*' '2026AA/META/MRSAB.RRF.gz'; done
+    cd 2026AA/META && cat $(ls MRCONSO.RRF.*.gz | sort) | gunzip > MRCONSO.RRF && rm MRCONSO.RRF.*.gz
+    wc -l MRCONSO.RRF    # 18,064,970 rows; must match MRFILES.RRF
+    rm ../../2026AA-full/*-meta.nlm   # the zip stays the original
+    ```
+- **Load:** after all other `bind`s: `uv run clinical-graph bind umls`.
+
+Files used:
+
+| File | Used for |
+| --- | --- |
+| `META/MRCONSO.RRF` | **binding** codes of SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS, ICD10, ICF, ICF-CY that share a CUI |
+
+UMLS 2026AA carries its own versions: SNOMED CT US 2026-03-01, LOINC 2.82, RxNorm
+2026-03-02, ATC 2026-01-28, ICD-10-CM and ICD-10-PCS 2026, ICF and ICF-CY **2008**,
+and WHO ICD-10 **1998**.
+Codes are resolved against the releases loaded here; those that are not in them
+are skipped.
+
 ---
 
 ## Bindings
@@ -316,9 +394,11 @@ What links one vocabulary to another, and where it comes from:
 | LOINC part → ChEBI, HGNC, NCBI Gene/Taxonomy, RadLex, UNII, PubChem | `PartRelatedCodeMapping.csv` | yes (targets are codes only; those vocabularies aren't loaded) |
 | RxNorm → ATC | RxNorm (`SAB=ATC`), `rxnorm` | yes — loaded by `clinical-graph bind` |
 | RxNorm → SNOMED CT | RxNorm (`SAB=SNOMEDCT_US`), `rxnorm` | yes — loaded by `clinical-graph bind` |
-| ATC → SNOMED CT, LOINC | none | through RxNorm only |
+| ATC → SNOMED CT, LOINC | none official | through RxNorm; and UMLS |
+| Any pair of loaded vocabularies (ICD-10-CM ↔ WHO ICD-10, LOINC ↔ ICD, SNOMED CT ↔ ATC / ICD-10-PCS / ICF, ...) | UMLS shared CUIs, `umls` | yes — `clinical-graph bind umls`, only the pairs no official map has |
 | SNOMED CT → **ICD-10-CM** | NLM map, refset 6011000124106, `snomed_icd10cm` | yes — loaded by `clinical-graph bind` |
 | LOINC term → SNOMED CT concept | LOINC Extension, `sct2_Identifier`, `loinc_extension` | yes — loaded by `clinical-graph bind` |
+| ICF ↔ anything | none official (ICD-11 Chapter V is built from ICF, but ICD-11 isn't loaded) | UMLS only |
 
 The SNOMED International map targets WHO ICD-10; ICD-10-CM comes from NLM's map.
 
@@ -329,8 +409,8 @@ The SNOMED International map targets WHO ICD-10; ICD-10-CM comes from NLM's map.
   - [AHRQ HCUP CCSR for ICD-10-PCS](https://hcup-us.ahrq.gov/toolssoftware/ccsr/prccsr.jsp):
     every PCS code in one of ~320 clinical categories (free CSV, yearly). A grouper,
     not a map: would be a small `CCSR` vocabulary.
-  - UMLS Metathesaurus (`MRCONSO.RRF`): PCS codes sharing a CUI with `SNOMEDCT_US`;
-    thin coverage, synonymy only.
+  - UMLS Metathesaurus: loaded (`umls`), but only 94 PCS codes share a CUI with
+    SNOMED CT or LOINC (mostly imaging), so it is no substitute for a map.
   - ICD-9-CM chain: CMS GEMs (PCS ↔ ICD-9-CM procedures, frozen since FY2018) plus
     NLM's ICD-9-CM → SNOMED CT map; lossy.
   - The PCS Body Part / Device / Substance keys (CMS code tables download), as raw

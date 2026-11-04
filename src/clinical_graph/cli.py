@@ -55,6 +55,84 @@ def _cmd_bind(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_embed_build(args: argparse.Namespace) -> int:
+    from clinical_graph.embeddings import build, embedding_sources
+
+    for key in args.source or embedding_sources():
+        build(
+            key,
+            batch_size=args.batch_size,
+            overwrite=args.overwrite,
+            device=args.device,
+        )
+    return 0
+
+
+def _cmd_embed_load(args: argparse.Namespace) -> int:
+    from clinical_graph.embeddings import load
+
+    for key, counts in load(
+        args.source or None, batch_size=args.batch_size, replace=args.replace
+    ).items():
+        print(f"[{key}]")
+        for name, n in counts.items():
+            print(f"  {name:50} {n:>10,}")
+    return 0
+
+
+def _cmd_embed_search(args: argparse.Namespace) -> int:
+    from clinical_graph.embeddings import EmbeddingIndex, search_graph
+    from clinical_graph.model import Vocabulary
+
+    vocabulary = Vocabulary(args.vocabulary)
+    if args.graph:
+        results = search_graph(args.text, vocabulary, top_k=args.top_k, kind=args.kind)
+        for text, hits in zip(args.text, results, strict=True):
+            print(f"{text}:")
+            for hit in hits:
+                print(f"  {hit['score']:.3f}  {hit['id']:28} {hit['name']}")
+        return 0
+    index = EmbeddingIndex.load(vocabulary)
+    for text, hits in zip(args.text, index.search(args.text, args.top_k), strict=True):
+        print(f"{text}:")
+        for hit in hits:
+            print(
+                f"  {hit['score']:.3f}  {hit['id']:28} {hit['text']} ({hit['origin']})"
+            )
+    return 0
+
+
+def _cmd_es_build(args: argparse.Namespace) -> int:
+    from clinical_graph.elastic import build, index_sources
+
+    for key in args.source or index_sources():
+        build(key, recreate=args.recreate, chunk_size=args.batch_size)
+    return 0
+
+
+def _cmd_es_search(args: argparse.Namespace) -> int:
+    from clinical_graph.elastic import QueryOptions, search
+    from clinical_graph.model import Vocabulary
+
+    options = QueryOptions(
+        fuzziness="AUTO" if args.fuzzy else None, exact_boost=args.exact_boost
+    )
+    filters = {"kind": args.kind} if args.kind else None
+    results = search(
+        args.text,
+        Vocabulary(args.vocabulary),
+        top_k=args.top_k,
+        options=options,
+        filters=filters,
+    )
+    for text, hits in zip(args.text, results, strict=True):
+        print(f"{text}:")
+        for hit in hits:
+            origin = f"({hit['origin']})"
+            print(f"  {hit['score']:7.2f}  {hit['id']:28} {hit['text']} {origin}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(prog="clinical-graph", description=__doc__)
@@ -81,7 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
         "source",
         nargs="*",
         help="sources.toml keys (default: all): "
-        "snomed loinc_extension loinc icd10cm icd10 rxnorm",
+        "snomed loinc_extension loinc icd10cm icd10 rxnorm icf",
     )
     ing.add_argument(
         "--batch-size", type=int, default=10_000, help="rows per transaction"
@@ -104,7 +182,7 @@ def build_parser() -> argparse.ArgumentParser:
         "source",
         nargs="*",
         help="sources.toml keys whose maps to write (default: all): "
-        "snomed snomed_icd10cm loinc loinc_extension rxnorm",
+        "snomed snomed_icd10cm loinc loinc_extension rxnorm umls",
     )
     bnd.add_argument(
         "--batch-size", type=int, default=10_000, help="rows per transaction"
@@ -119,6 +197,92 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run", action="store_true", help="read and resolve only; no Neo4j"
     )
     bnd.set_defaults(func=_cmd_bind)
+
+    emb = sub.add_parser("embed", help="SapBERT embeddings of the concepts")
+    esub = emb.add_subparsers(dest="action", required=True)
+    keys_help = (
+        "sources.toml keys (default: all): "
+        "snomed loinc_extension loinc icd10cm icd10 rxnorm icf"
+    )
+    ebuild = esub.add_parser(
+        "build", help="embed the concepts' texts and save them under data/processed"
+    )
+    ebuild.add_argument("source", nargs="*", help=keys_help)
+    ebuild.add_argument("--batch-size", type=int, default=256, help="texts per pass")
+    ebuild.add_argument(
+        "--overwrite", action="store_true", help="rebuild even if up to date"
+    )
+    ebuild.add_argument("--device", help="torch device (default: cuda if available)")
+    ebuild.set_defaults(func=_cmd_embed_build)
+
+    eload = esub.add_parser(
+        "load",
+        help="write the name vectors onto the Neo4j nodes and create the vector "
+        "indexes (after ingest)",
+    )
+    eload.add_argument("source", nargs="*", help=keys_help)
+    eload.add_argument(
+        "--batch-size", type=int, default=2_000, help="nodes per transaction"
+    )
+    eload.add_argument(
+        "--replace",
+        action="store_true",
+        help="remove the source's node embeddings first (after a release update)",
+    )
+    eload.set_defaults(func=_cmd_embed_load)
+
+    esearch = esub.add_parser("search", help="nearest concepts of one vocabulary")
+    esearch.add_argument("text", nargs="+", help="query texts")
+    esearch.add_argument(
+        "--vocabulary",
+        "-v",
+        required=True,
+        help="snomed loinc icd10cm icd10pcs icd10 rxnorm atc icf",
+    )
+    esearch.add_argument("--top-k", "-k", type=int, default=10)
+    esearch.add_argument(
+        "--graph",
+        action="store_true",
+        help="search the Neo4j vector index (names only) instead of the saved "
+        "embeddings (names and synonyms)",
+    )
+    esearch.add_argument("--kind", help="with --graph: only concepts of this kind")
+    esearch.set_defaults(func=_cmd_embed_search)
+
+    es = sub.add_parser("es", help="Elasticsearch full-text indexes of the concepts")
+    essub = es.add_subparsers(dest="action", required=True)
+    esbuild = essub.add_parser(
+        "build",
+        help="index the concepts' texts, one index per source release, and point "
+        "the vocabulary aliases at it",
+    )
+    esbuild.add_argument("source", nargs="*", help=keys_help)
+    esbuild.add_argument(
+        "--recreate", action="store_true", help="rebuild even if up to date"
+    )
+    esbuild.add_argument(
+        "--batch-size", type=int, default=5_000, help="documents per bulk request"
+    )
+    esbuild.set_defaults(func=_cmd_es_build)
+
+    essearch = essub.add_parser("search", help="BM25 search of one vocabulary")
+    essearch.add_argument("text", nargs="+", help="query texts")
+    essearch.add_argument(
+        "--vocabulary",
+        "-v",
+        required=True,
+        help="snomed loinc icd10cm icd10pcs icd10 rxnorm atc icf",
+    )
+    essearch.add_argument("--top-k", "-k", type=int, default=10)
+    essearch.add_argument("--kind", help="only concepts of this kind")
+    essearch.add_argument("--fuzzy", action="store_true", help="tolerate typos")
+    essearch.add_argument(
+        "--exact-boost",
+        type=float,
+        default=0.0,
+        help="extra score for a text equal to the query",
+    )
+    essearch.set_defaults(func=_cmd_es_search)
     return parser
 
 
@@ -126,6 +290,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI."""
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+    # HuggingFace Hub and Elasticsearch requests
+    for name in ("httpx", "httpx2", "elastic_transport.transport"):
+        logging.getLogger(name).setLevel(logging.WARNING)
     return int(args.func(args))
 
 

@@ -18,7 +18,13 @@ from neo4j import Driver
 from clinical_graph.graph_ingestion.connection import Neo4jSettings, connect
 from clinical_graph.graph_ingestion.schema import CONCEPT_LABEL, LABELS
 from clinical_graph.graph_ingestion.writer import MAPS_TO, GraphWriter, WriteCounts
-from clinical_graph.model import Mapping, MappingEquivalence, Vocabulary, vocabulary_of
+from clinical_graph.model import (
+    Mapping,
+    MappingEquivalence,
+    PropertyValue,
+    Vocabulary,
+    vocabulary_of,
+)
 from clinical_graph.sources import load_manifest
 from clinical_graph.sources.manifest import Source
 from clinical_graph.vocabularies import READERS, VocabularyReader
@@ -56,6 +62,8 @@ def resolve(
     mappings: Iterable[Mapping],
     readers: dict[Vocabulary, list[VocabularyReader]],
     counts: Counter[str],
+    *,
+    supplementary: bool = False,
 ) -> Iterator[Mapping]:
     """Resolve each mapping's target to a concept id; drop those that match none.
 
@@ -66,35 +74,91 @@ def resolve(
         mappings: Mappings with the published target code in the id.
         readers: Reader per target vocabulary, see :func:`target_readers`.
         counts: Updated with ``match: <how>`` and ``skipped: <why>`` counts.
+        supplementary: The reader is ``supplementary``: resolve the source as
+            well (``source_code``, ``source_match``) and drop ``ancestor``
+            matches on either end.
     """
     unmatched: Counter[str] = Counter()
-    for m in mappings:
-        vocabulary = vocabulary_of(m.target)
+
+    def lookup(id_: str, end: str) -> tuple[str, str, str] | None:
+        vocabulary = vocabulary_of(id_)
         if vocabulary not in readers:
             counts[f"skipped: {vocabulary} is not loaded"] += 1
-            continue
-        code = m.target.split(":", 1)[1]
+            return None
+        code = id_.split(":", 1)[1]
         found = _match(readers[vocabulary], vocabulary, code)
         if found is None:
-            counts["skipped: target code not found"] += 1
-            unmatched[code] += 1
+            counts[f"skipped: {end} code not found"] += 1
+            unmatched[f"{vocabulary}:{code}"] += 1
+            return None
+        if supplementary and found[1] == "ancestor":
+            counts[f"skipped: {end} matches only a broader code"] += 1
+            return None
+        return found[0], found[1], code
+
+    for m in mappings:
+        extra: dict[str, PropertyValue] = {}
+        source = m.source
+        if supplementary:
+            found_source = lookup(m.source, "source")
+            if found_source is None:
+                continue
+            source, source_how, source_code = found_source
+            extra = {"source_code": source_code, "source_match": source_how}
+        found = lookup(m.target, "target")
+        if found is None:
             continue
-        target, how = found
+        target, how, code = found
         counts[f"match: {how}"] += 1
         yield dataclasses.replace(
             m,
+            source=source,
             target=target,
             equivalence=MappingEquivalence.WIDER
             if how == "ancestor"
             else m.equivalence,
-            properties={**m.properties, "target_code": code, "match": how},
+            properties={**m.properties, **extra, "target_code": code, "match": how},
         )
     if unmatched:
         log.info(
-            "%d target codes matched nothing, e.g. %s",
+            "%d codes matched nothing, e.g. %s",
             len(unmatched),
             ", ".join(c for c, _ in unmatched.most_common(15)),
         )
+
+
+def only_new(
+    mappings: Iterable[Mapping], linked: set[frozenset[str]], counts: Counter[str]
+) -> Iterator[Mapping]:
+    """Drop mappings between two concepts that are linked already (either way).
+
+    Args:
+        mappings: Resolved mappings.
+        linked: Pairs of concept ids already joined by ``MAPS_TO``; the pairs let
+            through are added, so a pair is written once.
+        counts: Updated with ``skipped: already linked``.
+    """
+    for m in mappings:
+        pair = frozenset((m.source, m.target))
+        if pair in linked:
+            counts["skipped: already linked"] += 1
+            continue
+        linked.add(pair)
+        yield m
+
+
+def linked_pairs(
+    driver: Driver, database: str, exclude: Iterable[str]
+) -> set[frozenset[str]]:
+    """Pairs of concepts joined by ``MAPS_TO`` edges of other provenances."""
+    query = (
+        f"MATCH (a:{CONCEPT_LABEL})-[r:{MAPS_TO}]->(b:{CONCEPT_LABEL}) "
+        f"WHERE NOT r.provenance IN $exclude "
+        f"RETURN a.id AS a, b.id AS b"
+    )
+    with driver.session(database=database) as session:  # pyright: ignore[reportUnknownMemberType]
+        result = session.run(query, exclude=list(exclude))
+        return {frozenset((str(r["a"]), str(r["b"]))) for r in result}
 
 
 def delete_mappings(driver: Driver, database: str, provenances: Iterable[str]) -> int:
@@ -157,7 +221,13 @@ def bind(
                 log.info("[%s] deleted %d %s edges", key, n, MAPS_TO)
             counts: Counter[str] = Counter()
             writer = GraphWriter(driver, settings.database, batch_size)
-            writer.write_mappings(resolve(mappings, readers, counts))
+            resolved = resolve(
+                mappings, readers, counts, supplementary=reader.supplementary
+            )
+            if reader.supplementary:
+                linked = linked_pairs(driver, settings.database, reader.provenances)
+                resolved = only_new(resolved, linked, counts)
+            writer.write_mappings(resolved)
             for name, n in sorted({**counts, **writer.counts.edges}.items()):
                 log.info("[%s]   %-45s %9d", key, name, n)
             if writer.counts.skipped_edges:
@@ -180,21 +250,46 @@ def dry_run_bind(source_keys: Iterable[str] | None = None) -> dict[str, dict[str
     manifest = load_manifest()
     readers = target_readers(manifest)
     results: dict[str, dict[str, int]] = {}
+    linked: set[frozenset[str]] = set()  # pairs written by the maps seen so far
+    seen: set[str] = set()
     for key in source_keys or READERS:
         reader = READERS[key](manifest[key])
         mappings = _mappings(reader, key)
         if mappings is None:
             continue
         counts: Counter[str] = Counter()
-        for m in resolve(mappings, readers, counts):
+        resolved = resolve(
+            mappings, readers, counts, supplementary=reader.supplementary
+        )
+        if reader.supplementary:
+            for other, cls in READERS.items():  # what bind would find in Neo4j
+                if other not in seen and other != key and not cls.supplementary:
+                    linked |= _pairs(cls(manifest[other]), other, readers)
+            resolved = only_new(resolved, linked, counts)
+        for m in resolved:
             source = vocabulary_of(m.source)
             if not any(m.source in r.concept_ids for r in readers[source]):
                 counts["skipped: source concept not found"] += 1
                 continue
+            linked.add(frozenset((m.source, m.target)))
             label = f"{LABELS[source]}-{MAPS_TO}->{LABELS[vocabulary_of(m.target)]}"
             counts[label] += 1
             if m.properties.get("active") is False:
                 counts[f"{label} (inactive)"] += 1
+        seen.add(key)
         if counts:
             results[key] = dict(sorted(counts.items()))
     return results
+
+
+def _pairs(
+    reader: VocabularyReader,
+    key: str,
+    readers: dict[Vocabulary, list[VocabularyReader]],
+) -> set[frozenset[str]]:
+    """The concept pairs a (non-supplementary) source's maps link, resolved."""
+    mappings = _mappings(reader, key)
+    if mappings is None:
+        return set()
+    resolved = resolve(mappings, readers, Counter())
+    return {frozenset((m.source, m.target)) for m in resolved}

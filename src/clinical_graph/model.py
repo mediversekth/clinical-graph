@@ -32,6 +32,7 @@ class Vocabulary(StrEnum):
     RXNORM = "rxnorm"
     ATC = "atc"  # WHO ATC classification, from the RxNorm release
     CHEBI = "chebi"
+    ICF = "icf"  # WHO ICF (functioning, disability and health)
 
 
 class MappingEquivalence(StrEnum):

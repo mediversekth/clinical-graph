@@ -33,6 +33,15 @@
     },
     "version": "2027"
   },
+  "icf": {
+    "files": {
+      "SimpleTabulation-ICF-en.txt": {
+        "sha256": "2e0b2555b2630cc9e21f187968c3a2e4a6612224d05e944f1091942a35f333c4",
+        "size": 473303
+      }
+    },
+    "version": "2026-01"
+  },
   "loinc": {
     "files": {
       "AccessoryFiles/AnswerFile/AnswerList.csv": {
@@ -46,6 +55,10 @@
       "AccessoryFiles/ComponentHierarchyBySystem/ComponentHierarchyBySystem.csv": {
         "sha256": "ee4ea05969b3fa84f25d9800bd66210b8078fa87f5f25849955414c3949a687a",
         "size": 24046592
+      },
+      "AccessoryFiles/ConsumerName/ConsumerName.csv": {
+        "sha256": "81392f1797472edd5dcc8d69a0191f0460fb835a457382e7458c9b847c97c79f",
+        "size": 3378803
       },
       "AccessoryFiles/GroupFile/Group.csv": {
         "sha256": "6e8d93ca5788da88f8c4c7902a1dd05b04abef5f0812a722b50b769920d448be",
@@ -229,5 +242,14 @@
       }
     },
     "version": "20260901"
+  },
+  "umls": {
+    "files": {
+      "META/MRCONSO.RRF": {
+        "sha256": "75b7d6bd7fd509b4a6dabe1e44a481bb3abd049ac9be50a7cddf6fbecdc35ae6",
+        "size": 2340400074
+      }
+    },
+    "version": "2026AA"
   }
 }

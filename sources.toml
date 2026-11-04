@@ -247,6 +247,11 @@ purpose = "Panel -> member terms"
 required = false
 
 [[sources.loinc.files]]
+path = "AccessoryFiles/ConsumerName/ConsumerName.csv"
+purpose = "Consumer-friendly names of the terms (since 2.8x not in Loinc.csv)"
+required = false
+
+[[sources.loinc.files]]
 path = "AccessoryFiles/AnswerFile/AnswerList.csv"
 purpose = "Answer lists and answers (LA codes)"
 required = false
@@ -303,3 +308,33 @@ release_dir = "icd10/2019"
 [[sources.icd10.files]]
 path = "icd102019en.xml"
 purpose = "Chapters, blocks, categories, modifiers (4th/5th-character subdivisions), inclusion and exclusion notes"
+
+# --------------------------------------------------------------------------------
+[sources.umls]
+title = "UMLS Metathesaurus, 2026AA (full release)"
+version = "2026AA"
+publisher = "U.S. National Library of Medicine"
+licence = "UMLS Metathesaurus Licence (free, UTS account); per-source restrictions (Appendix 2)"
+homepage = "https://www.nlm.nih.gov/research/umls/"
+download = "https://www.nlm.nih.gov/research/umls/licensedcontent/umlsknowledgesources.html"
+archive = "umls-2026AA-full.zip (MRCONSO assembled from 2026aa-1-meta.nlm, 2026aa-2-meta.nlm)"
+release_dir = "umls/2026AA"
+
+[[sources.umls.files]]
+path = "META/MRCONSO.RRF"
+purpose = "Binding: codes of the loaded vocabularies that share a CUI (SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS, ICD10, ICF, ICF-CY)"
+
+# --------------------------------------------------------------------------------
+[sources.icf]
+title = "ICF (WHO), 2026-01 release, simple tabulation"
+version = "2026-01"
+publisher = "World Health Organization"
+licence = "CC BY-ND 3.0 IGO (same terms as ICD-11; free download, no account)"
+homepage = "https://icd.who.int/browse/latest-release/icf/en"
+download = "https://icdcdn.who.int/static/releasefiles/2026-01/SimpleTabulation-ICF-en.zip"
+archive = "SimpleTabulation-ICF-en.zip"
+release_dir = "icf/2026-01"
+
+[[sources.icf.files]]
+path = "SimpleTabulation-ICF-en.txt"
+purpose = "ICF sections, components, chapters, blocks, categories and qualifiers with their parents (Foundation URIs)"

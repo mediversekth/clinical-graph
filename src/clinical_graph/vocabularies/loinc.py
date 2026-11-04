@@ -1,6 +1,8 @@
 """LOINC release (terms, parts and accessory files).
 
-* Concepts: terms of ``Loinc.csv`` (``kind="term"``, ``2345-7``), parts of
+* Concepts: terms of ``Loinc.csv`` (``kind="term"``, ``2345-7``; with their
+  display, short and consumer names and ``RELATEDNAMES2`` as
+  ``related_names``), parts of
   ``Part.csv`` (``part``, ``LP14635-4``), LP codes of the component hierarchy that
   are not parts (``hierarchy``), and groups / parent groups (``group``,
   ``parentgroup``, ``LG100-4``). Terms, LP and LG codes never collide.
@@ -50,6 +52,7 @@ GROUP = "AccessoryFiles/GroupFile/Group.csv"
 GROUP_TERMS = "AccessoryFiles/GroupFile/GroupLoincTerms.csv"
 PARENT_GROUP = "AccessoryFiles/GroupFile/ParentGroup.csv"
 PANELS = "AccessoryFiles/PanelsAndForms/PanelsAndForms.csv"
+CONSUMER_NAME = "AccessoryFiles/ConsumerName/ConsumerName.csv"
 PART_MAP = "AccessoryFiles/PartFile/PartRelatedCodeMapping.csv"
 
 SNOMED_SYSTEM = "http://snomed.info/sct"
@@ -103,9 +106,20 @@ class LoincReader(VocabularyReader):
         RXNORM_MAP_PROVENANCE,
     )
 
+    def _consumer_names(self) -> dict[str, str]:
+        """LOINC number -> consumer name, from ``ConsumerName.csv`` if present."""
+        if not self.has(CONSUMER_NAME):
+            return {}
+        return {
+            row["LoincNumber"]: row["ConsumerName"].strip()
+            for row in self.read_csv(CONSUMER_NAME)
+            if row["ConsumerName"].strip()
+        }
+
     def iter_concepts(self) -> Iterator[Concept]:
         """Yield LOINC terms, parts, hierarchy nodes and groups."""
         seen: set[str] = set()
+        consumer_names = self._consumer_names()
         for row in self.read_csv(LOINC):
             seen.add(row["LOINC_NUM"])
             status = _status(row["STATUS"])
@@ -118,6 +132,18 @@ class LoincReader(VocabularyReader):
                 properties={
                     "status": status,
                     "short_name": row["SHORTNAME"] or None,
+                    "display_name": row["DisplayName"].strip() or None,
+                    # ConsumerName.csv since 2.8x; the Loinc.csv column before
+                    "consumer_name": consumer_names.get(row["LOINC_NUM"])
+                    or row["CONSUMER_NAME"].strip()
+                    or None,
+                    "related_names": [
+                        n
+                        for n in dict.fromkeys(
+                            n.strip() for n in row["RELATEDNAMES2"].split(";")
+                        )
+                        if n
+                    ],
                     "class": row["CLASS"] or None,
                     "component": row["COMPONENT"] or None,
                     "property": row["PROPERTY"] or None,
