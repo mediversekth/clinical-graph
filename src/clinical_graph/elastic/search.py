@@ -1,9 +1,8 @@
 """Full-text concept search over the vocabulary aliases.
 
-Ported from mediverse's ES retrieval: BM25 over every text of a concept, an
-optional boost for the query as a phrase and for an exact (case- and
-accent-insensitive) match, and hits collapsed on ``concept_id`` so each concept
-appears once, ranked by its best text.
+BM25 over every text of a concept, an optional boost for the query as a phrase
+and for an exact (case- and accent-insensitive) match, and hits collapsed on
+``concept_id`` so each concept appears once, ranked by its best text.
 """
 
 from dataclasses import dataclass

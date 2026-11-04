@@ -33,12 +33,10 @@ International hierarchy, so run `ingest loinc_extension` after it.
 ## Sharing the database
 
 Neo4j is set up as described in the [README](../README.md#neo4j). Community has a
-single user database, so if other projects use the same instance (locally,
-mediverse: `ObjectConcept`, `ICD10Concept`, `LOINCConcept`, `ClinGraphNode`, MIMIC
-nodes, ...), this graph lives next to their nodes. They never mix:
+single user database, so if other projects use the same instance, this graph
+lives next to their nodes. They never mix:
 
-- every node created here has the `Concept` label, which the others must not use
-  (mediverse does not);
+- every node created here has the `Concept` label, which the others must not use;
 - `--replace` and `delete_vocabulary` only delete `Concept` nodes;
 - relationship types such as `ISA` exist in both, so always anchor queries on a
   label: `MATCH (:SNOMEDCT)-[:ISA]->(:SNOMEDCT)`, not `MATCH ()-[:ISA]->()`.

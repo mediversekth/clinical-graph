@@ -174,7 +174,7 @@ Measured on the current build:
 | | |
 | --- | --- |
 | `data/raw/` | ~15 GB, of which the UMLS full-release zip is 5.4 GB and the assembled `MRCONSO.RRF` 2.3 GB |
-| Neo4j data directory | ~9 GB (`~/neo4j/data`, shared here with mediverse's nodes) |
+| Neo4j data directory | ~9 GB (`~/neo4j/data`) |
 | Neo4j memory | 8 GB heap + 8 GB page cache (see above) |
 | `bind umls --dry-run` | ~50 s, 1.4 GB peak RAM in the Python process |
 

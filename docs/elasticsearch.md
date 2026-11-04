@@ -47,8 +47,7 @@ update leaves no old index behind. A source is skipped if a complete index of
 its current `sources.toml` version exists; `--recreate` builds it anew anyway.
 
 Everything here is named `clinical_graph_*`, and only those indexes are created
-or deleted. The cluster can be shared, for example with mediverse's own
-indexes.
+or deleted, so the cluster can be shared with other projects' indexes.
 
 ## Documents
 
@@ -80,17 +79,15 @@ node properties.
 
 ## Analyzer
 
-`en_folded` (ported from mediverse's SNOMED index, now used by every
-vocabulary): standard tokenizer, lowercase, ASCII folding, English possessive
-and stemmer, and Lucene's English stop words **minus** *no* and *not*, since in
+`en_folded` (used by every vocabulary): standard tokenizer, lowercase, ASCII
+folding, English possessive and stemmer, and Lucene's English stop words **minus** *no* and *not*, since in
 clinical text they change the meaning (*No known allergies*).
 
 ## Searching
 
-`clinical_graph.elastic.search` ports mediverse's retrieval. It matches `text`
-(`operator` `or`/`and`, optional `fuzziness`, `minimum_should_match`), optionally
-boosts phrase and exact matches of the span, filters on exact field values and
-collapses on `concept_id`:
+`clinical_graph.elastic.search` matches `text` (`operator` `or`/`and`, optional
+`fuzziness`, `minimum_should_match`), optionally boosts phrase and exact matches
+of the span, filters on exact field values and collapses on `concept_id`:
 
 ```python
 from clinical_graph.elastic import QueryOptions, search
@@ -119,18 +116,3 @@ POST clinical_graph_snomed/_search
   "size": 10
 }
 ```
-
-## Differences from mediverse's indexes
-
-These indexes replace mediverse's `snomed_ct_v2`, `icd10_2027` and `loinc_2.83`.
-A client moving over needs to change:
-
-| mediverse | here |
-| --- | --- |
-| `conceptId` (`44054006`, `E119`, `4548-4`) | `concept_id` (`snomed:44054006`, `icd10cm:E11.9`, `loinc:4548-4`); `code` holds the bare code, and `code_no_dot` the ICD-10-CM `E119` |
-| `term` (+ `.keyword`, `.exact`) | `text` (+ `.keyword`, `.exact`), same analyzer |
-| one index for ICD-10-CM and PCS, `system` | two aliases, `clinical_graph_icd10cm` and `clinical_graph_icd10pcs` (or both at once) |
-| LOINC `system`: `loinc` / `loinc_part` | `kind`: `term` / `part` |
-| LOINC `category` | `class` (terms), `part_type` (parts) |
-| SNOMED: every description, active and inactive, and definitions; filtered with `active`, `conceptActive`, `typeId` | current concepts only, no definitions; `origin` (`name`, `fsn`, `synonym`) replaces `typeId` |
-| SNOMED: all English descriptions | the US-English preferred term and acceptable synonyms |

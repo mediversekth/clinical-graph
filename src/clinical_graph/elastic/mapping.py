@@ -1,9 +1,8 @@
 """Index names, analysis settings and the document mapping.
 
-Ported from mediverse's SNOMED text index, now used by every vocabulary: an
-English analyzer (lowercase, ASCII folding, possessives, stemming) whose stop
-list keeps negations, since in clinical text *no* and *not* change the meaning
-(*No known allergies*).
+The same English analyzer for every vocabulary (lowercase, ASCII folding,
+possessives, stemming), whose stop list keeps negations, since in clinical text
+*no* and *not* change the meaning (*No known allergies*).
 """
 
 from typing import Any
@@ -12,7 +11,7 @@ from clinical_graph.model import Vocabulary
 
 PREFIX = "clinical_graph_"
 """Every index and alias made here starts with this, so they never collide with
-other projects' indexes on the same cluster (mediverse: ``snomed_ct_v2``, ...)."""
+other projects' indexes on the same cluster."""
 
 
 def index_name(source_key: str, version: str, built: str) -> str:
