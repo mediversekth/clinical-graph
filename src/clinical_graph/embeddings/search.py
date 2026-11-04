@@ -13,8 +13,8 @@ import torch
 
 from clinical_graph.embeddings.encoder import FloatMatrix, SapBertEncoder
 from clinical_graph.embeddings.store import EmbeddingSet, HalfMatrix
-from clinical_graph.embeddings.texts import Text
 from clinical_graph.model import Vocabulary, vocabulary_of
+from clinical_graph.texts import Text
 from clinical_graph.vocabularies import READERS
 
 

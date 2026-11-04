@@ -102,6 +102,37 @@ def _cmd_embed_search(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_es_build(args: argparse.Namespace) -> int:
+    from clinical_graph.elastic import build, index_sources
+
+    for key in args.source or index_sources():
+        build(key, recreate=args.recreate, chunk_size=args.batch_size)
+    return 0
+
+
+def _cmd_es_search(args: argparse.Namespace) -> int:
+    from clinical_graph.elastic import QueryOptions, search
+    from clinical_graph.model import Vocabulary
+
+    options = QueryOptions(
+        fuzziness="AUTO" if args.fuzzy else None, exact_boost=args.exact_boost
+    )
+    filters = {"kind": args.kind} if args.kind else None
+    results = search(
+        args.text,
+        Vocabulary(args.vocabulary),
+        top_k=args.top_k,
+        options=options,
+        filters=filters,
+    )
+    for text, hits in zip(args.text, results, strict=True):
+        print(f"{text}:")
+        for hit in hits:
+            origin = f"({hit['origin']})"
+            print(f"  {hit['score']:7.2f}  {hit['id']:28} {hit['text']} {origin}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(prog="clinical-graph", description=__doc__)
@@ -217,6 +248,41 @@ def build_parser() -> argparse.ArgumentParser:
     )
     esearch.add_argument("--kind", help="with --graph: only concepts of this kind")
     esearch.set_defaults(func=_cmd_embed_search)
+
+    es = sub.add_parser("es", help="Elasticsearch full-text indexes of the concepts")
+    essub = es.add_subparsers(dest="action", required=True)
+    esbuild = essub.add_parser(
+        "build",
+        help="index the concepts' texts, one index per source release, and point "
+        "the vocabulary aliases at it",
+    )
+    esbuild.add_argument("source", nargs="*", help=keys_help)
+    esbuild.add_argument(
+        "--recreate", action="store_true", help="rebuild even if up to date"
+    )
+    esbuild.add_argument(
+        "--batch-size", type=int, default=5_000, help="documents per bulk request"
+    )
+    esbuild.set_defaults(func=_cmd_es_build)
+
+    essearch = essub.add_parser("search", help="BM25 search of one vocabulary")
+    essearch.add_argument("text", nargs="+", help="query texts")
+    essearch.add_argument(
+        "--vocabulary",
+        "-v",
+        required=True,
+        help="snomed loinc icd10cm icd10pcs icd10 rxnorm atc icf",
+    )
+    essearch.add_argument("--top-k", "-k", type=int, default=10)
+    essearch.add_argument("--kind", help="only concepts of this kind")
+    essearch.add_argument("--fuzzy", action="store_true", help="tolerate typos")
+    essearch.add_argument(
+        "--exact-boost",
+        type=float,
+        default=0.0,
+        help="extra score for a text equal to the query",
+    )
+    essearch.set_defaults(func=_cmd_es_search)
     return parser
 
 
@@ -224,7 +290,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI."""
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-    for name in ("httpx", "httpx2"):  # HuggingFace Hub requests
+    # HuggingFace Hub and Elasticsearch requests
+    for name in ("httpx", "httpx2", "elastic_transport.transport"):
         logging.getLogger(name).setLevel(logging.WARNING)
     return int(args.func(args))
 

@@ -2,8 +2,6 @@
 
 Everything about embeddings lives here:
 
-* :mod:`~clinical_graph.embeddings.texts`: which concepts are embedded and with
-  which texts (name, synonyms, ...)
 * :mod:`~clinical_graph.embeddings.encoder`: the SapBERT encoder
 * :mod:`~clinical_graph.embeddings.store`: building them from the readers and
   saving them under ``processed/embeddings/sapbert/<source>/``
@@ -12,8 +10,10 @@ Everything about embeddings lives here:
 * :mod:`~clinical_graph.embeddings.search`: searching the saved embeddings,
   synonyms included
 
-One model and one vector space for every vocabulary, so scores compare across
-vocabularies; storage and indexes are per source and per vocabulary.
+Which concepts and texts are embedded is decided in :mod:`clinical_graph.texts`,
+shared with the Elasticsearch indexes. One model and one vector space for every
+vocabulary, so scores compare across vocabularies; storage and indexes are per
+source and per vocabulary.
 """
 
 from clinical_graph.embeddings.encoder import SAPBERT_MODEL, SapBertEncoder
@@ -30,7 +30,6 @@ from clinical_graph.embeddings.store import (
     embedding_sources,
     embeddings_dir,
 )
-from clinical_graph.embeddings.texts import Text, concept_texts, is_embedded, iter_texts
 
 __all__ = [
     "EMBEDDING_PROPERTY",
@@ -38,14 +37,10 @@ __all__ = [
     "EmbeddingIndex",
     "EmbeddingSet",
     "SapBertEncoder",
-    "Text",
     "build",
-    "concept_texts",
     "embedding_sources",
     "embeddings_dir",
     "index_name",
-    "is_embedded",
-    "iter_texts",
     "load",
     "search_graph",
 ]

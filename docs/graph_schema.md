@@ -543,6 +543,30 @@ as are the grouping nodes: ICD-10-CM / ICD-10 `chapter` and `block`, ICD-10-PCS
 `component`, `qualifier_group` and `qualifier`. One model is used for every
 vocabulary, so scores compare across vocabularies.
 
+Coverage on the current releases. The concepts embedded are the nodes that get
+`embedding`; texts are the rows on disk, one per source (ICD-10-CM and
+ICD-10-PCS share `icd10cm`, RxNorm and ATC share `rxnorm`):
+
+| Vocabulary (label) | Source | Concepts embedded | Texts on disk | Nodes in graph | Left out |
+| --- | --- | ---: | ---: | ---: | --- |
+| `SNOMEDCT`, International Edition | `snomed` | 375,860 | 618,913 | 525,649 | inactive concepts |
+| `SNOMEDCT`, LOINC Extension | `loinc_extension` | 47,962 | 190,093 | 47,998 | inactive concepts |
+| `LOINC` | `loinc` | 181,324 | 571,741 | 238,424 | deprecated terms, inactive parts, `hierarchy`, `group`, `parentgroup` |
+| `ICD10CM` | `icd10cm` | 98,403 | 245,015 (with PCS) | 98,722 | `chapter`, `block` |
+| `ICD10PCS` | `icd10cm` | 79,256 | | 80,174 | `table` |
+| `ICD10` (WHO) | `icd10` | 16,455 | 36,248 | 16,751 | `chapter`, `block` |
+| `RXNORM` | `rxnorm` | 125,244 | 180,946 (with ATC) | 230,470 | obsolete concepts |
+| `ATC` | `rxnorm` | 7,000 | | 7,000 | nothing |
+| `ICF` | `icf` | 1,610 | 1,610 | 1,665 | `section`, `component`, `qualifier_group`, `qualifier` |
+| **Total** | | **933,114** | **1,844,566** | **1,246,853** | |
+
+`embed load` found a node for every embedded concept. UMLS has no embeddings:
+it is not a vocabulary of the graph, only a source of `MAPS_TO` edges. To embed
+more (inactive SNOMED CT concepts, for terms from old records), change
+`SKIPPED_KINDS` / `is_indexed` in `texts.py` (shared with the Elasticsearch
+indexes, [docs/elasticsearch.md](elasticsearch.md)), then run `embed build
+<source> --overwrite` and `embed load <source>`.
+
 Each distinct text of a concept is one vector (case and spacing ignored):
 
 | Vocabulary | Texts |

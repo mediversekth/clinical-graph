@@ -17,6 +17,8 @@ uv run clinical-graph bind [snomed snomed_icd10cm loinc loinc_extension rxnorm u
 uv run clinical-graph embed build [sources] [--overwrite]   # SapBERT -> data/processed/embeddings/sapbert/<source>/
 uv run clinical-graph embed load [sources] [--replace]      # node `embedding` + vector indexes, after ingest
 uv run clinical-graph embed search TEXT -v VOCABULARY [--graph]
+uv run clinical-graph es build [sources] [--recreate]       # Elasticsearch, one index per source release
+uv run clinical-graph es search TEXT -v VOCABULARY [--kind K] [--fuzzy]
 ```
 
 ## Conventions
@@ -59,10 +61,16 @@ uv run clinical-graph embed search TEXT -v VOCABULARY [--graph]
 - UMLS (`umls`) is a `supplementary` reader: shared-CUI pairs, both ends resolved,
   no `ancestor` matches, and only pairs no other `MAPS_TO` links; it stays last in
   `READERS` and is bound after the official maps.
-- Embeddings (SapBERT only) live in `embeddings/`: texts come from the readers'
-  `Concept` records (`texts.py` says which concepts and texts), one folder per
+- `texts.py` decides which concepts and which of their texts are searchable; the
+  embeddings and the Elasticsearch indexes both use it, so they hold the same texts.
+- Embeddings (SapBERT only) live in `embeddings/`: texts from `texts.py`, one folder per
   source on disk, one vector index per vocabulary label in Neo4j
   (`concept_embedding_<label>`, on `embedding`, the name's vector). Community
   Edition cannot store the `VECTOR` type: write with
   `db.create.setNodeVectorProperty`.
+- Elasticsearch lives in `elastic/`: one index per source release
+  (`clinical_graph_<source>_<version>_<built>`, `_meta.source` / `version`), searched
+  through one filtered alias per vocabulary (`clinical_graph_<vocabulary>`); a
+  build swaps the aliases atomically and deletes the source's older indexes. Only
+  touch indexes named `clinical_graph_*` (the cluster is shared with mediverse).
 - No tests: the user does not want them. New commands go in `cli.py`.

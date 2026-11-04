@@ -52,24 +52,18 @@ server.memory.pagecache.size=8g
 ```
 
 8 GB heap + 8 GB page cache is what the full graph was built with; less works but
-ingests slower. Neo4j must run with Java 21, so use a small wrapper:
+ingests slower.
 
-```bash
-cat > ~/neo4j/neo4j.sh <<EOF
-#!/bin/sh
-# Run Neo4j with its private Java 21. Usage: ~/neo4j/neo4j.sh start|stop|status|restart
-export JAVA_HOME=$HOME/neo4j/jdk-21
-exec $HOME/neo4j/neo4j-community-$V/bin/neo4j "\$@"
-EOF
-chmod +x ~/neo4j/neo4j.sh
-```
-
-Set the password, then start it:
+Set the password, then start it with `scripts/neo4j.sh`, which runs Neo4j with
+its private Java 21 and waits until it answers:
 
 ```bash
 JAVA_HOME=~/neo4j/jdk-21 ~/neo4j/neo4j-community-$V/bin/neo4j-admin dbms set-initial-password '<password>'
-~/neo4j/neo4j.sh start    # also: stop, status, restart
+scripts/neo4j.sh start     # also: stop, restart, status
 ```
+
+The script assumes the paths above; for another version or location set
+`NEO4J_VERSION`, `NEO4J_HOME` or `NEO4J_JAVA`.
 
 The browser UI is at http://localhost:7474, Bolt at `bolt://localhost:7687`.
 Neo4j does not start automatically after a reboot. Community has one user
@@ -79,6 +73,43 @@ the `Concept` label and is the only thing this project deletes
 
 Copy `.env.example` to `.env` and set `NEO4J_PASSWORD` (also `NEO4J_URI`,
 `NEO4J_USERNAME`, `NEO4J_DATABASE` if not the defaults).
+
+## Elasticsearch
+
+The full-text indexes need **Elasticsearch 9.x** (the Python client is 9.x). For
+a local, single-user setup, the official tarball needs no root access:
+
+```bash
+mkdir -p ~/elasticsearch && cd ~/elasticsearch
+V=9.1.10   # use the archive for your CPU: linux-x86_64 or linux-aarch64
+curl -LO https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$V-linux-aarch64.tar.gz
+tar -xzf elasticsearch-$V-linux-aarch64.tar.gz
+```
+
+Append to `elasticsearch-$V/config/elasticsearch.yml`:
+
+```yaml
+network.host: 127.0.0.1        # only reachable from this machine
+discovery.type: single-node
+xpack.security.enabled: false  # no username/password
+path.data: /home/<you>/elasticsearch/data
+path.logs: /home/<you>/elasticsearch/logs
+```
+
+Optionally set the memory in `config/jvm.options.d/heap.options` (e.g. `-Xms8g`
+and `-Xmx8g` on two lines). Then start it with `scripts/elasticsearch.sh`, which
+runs it in the background (pid in `~/elasticsearch/pid`) and waits until the
+cluster is up:
+
+```bash
+scripts/elasticsearch.sh start     # also: stop, restart, status
+```
+
+The script assumes the paths above; for another version or location set
+`ES_VERSION` or `ES_HOME`. Elasticsearch does not start automatically after a
+reboot. The defaults in `.env.example` (`ELASTICSEARCH_URL=http://localhost:9200`,
+no credentials) match this setup. Other projects can share the cluster: everything here is named
+`clinical_graph_*`, and only those indexes are created or deleted.
 
 ## Building the graph
 
@@ -122,6 +153,20 @@ uv run clinical-graph embed search "HbA1c" -v loinc --graph --kind term   # Neo4
 
 Details: [docs/graph_schema.md](docs/graph_schema.md#embeddings).
 
+### Full-text indexes
+
+The same texts are indexed in Elasticsearch, for BM25 search. Each source
+release gets one index, and each vocabulary is searched through an alias
+(`clinical_graph_icd10cm`, `clinical_graph_snomed`, ...):
+
+```bash
+uv run clinical-graph es build                     # all sources; up-to-date ones are skipped
+uv run clinical-graph es build loinc --recreate    # rebuild one; searches keep working meanwhile
+uv run clinical-graph es search "hba1c" -v loinc --kind term [--fuzzy] [--exact-boost 10]
+```
+
+Details: [docs/elasticsearch.md](docs/elasticsearch.md).
+
 ### Resources
 
 Measured on the current build:
@@ -136,13 +181,17 @@ Measured on the current build:
 ## Layout
 
 ```text
+scripts/neo4j.sh             # start | stop | restart | status the local Neo4j
+scripts/elasticsearch.sh     # start | stop | restart | status the local Elasticsearch
 sources.toml                 # every source release and the files read from it
 sources.lock.json            # size + SHA-256 of those files, for reproducibility
 docs/sources.md              # how to obtain each release; the bindings they contain
 docs/graph_schema.md         # the Neo4j graph: labels, properties, relationships
+docs/elasticsearch.md        # the Elasticsearch indexes: aliases, documents, analyzer
 src/clinical_graph/
 ├── paths.py                 # data directory locations
 ├── model.py                 # Concept, Relation (within a vocabulary), Mapping (binding)
+├── texts.py                 # which concepts and texts the search indexes hold
 ├── sources/                 # manifest loading, presence and checksum checks
 ├── vocabularies/            # one reader per source, READERS in __init__.py
 │   ├── base.py              # VocabularyReader: iter_concepts / iter_relations / iter_mappings / match
@@ -162,11 +211,15 @@ src/clinical_graph/
 │   ├── ingest.py            # ingest(), dry_run(), delete_vocabulary()
 │   └── bindings.py          # bind(): resolve both ends, write MAPS_TO edges
 ├── embeddings/              # SapBERT embeddings of the concepts
-│   ├── texts.py             # which concepts, which texts (name, synonyms, ...)
 │   ├── encoder.py           # SapBERT ([CLS], L2-normalised)
 │   ├── store.py             # build(): readers -> data/processed/embeddings/sapbert/<source>/
 │   ├── graph.py             # load(): node `embedding` + per-label vector indexes; search_graph()
 │   └── search.py            # EmbeddingIndex: search over names and synonyms (memory-mapped)
+├── elastic/                 # Elasticsearch full-text indexes of the concepts
+│   ├── connection.py        # ELASTICSEARCH_* settings from env / .env
+│   ├── mapping.py           # index / alias names, analyzer, document mapping
+│   ├── build.py             # build(): one index per source release, aliases per vocabulary
+│   └── search.py            # search(): BM25, collapsed per concept
 └── cli.py                   # `clinical-graph` command
 ```
 
@@ -201,7 +254,7 @@ New commands go in `cli.py`.
    `docs/graph_schema.md`.
 5. Re-load: `ingest <key> --replace`, then `bind <key> --replace`, then
    `bind umls --replace`; then `embed build <key>` (rebuilds, since the
-   version changed) and `embed load <key> --replace`.
+   version changed), `embed load <key> --replace` and `es build <key>`.
 
 ### Adding a source
 

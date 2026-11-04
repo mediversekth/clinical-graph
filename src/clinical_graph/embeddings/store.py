@@ -3,7 +3,7 @@
 ``<data dir>/processed/embeddings/sapbert/<source key>/`` holds:
 
 * ``texts.tsv``: ``concept_id``, ``origin``, ``text``; one row per embedded
-  text (see :mod:`clinical_graph.embeddings.texts`), a concept's rows together
+  text (see :mod:`clinical_graph.texts`), a concept's rows together
   and its ``name`` row first
 * ``vectors.npy``: float16, shape ``(rows, 768)``, row-aligned with
   ``texts.tsv``, L2-normalised
@@ -29,8 +29,8 @@ import numpy as np
 
 from clinical_graph import paths
 from clinical_graph.embeddings.encoder import SAPBERT_MODEL, SapBertEncoder
-from clinical_graph.embeddings.texts import Text, iter_texts
 from clinical_graph.sources import load_manifest
+from clinical_graph.texts import Text, iter_texts
 from clinical_graph.vocabularies import READERS
 
 log = logging.getLogger(__name__)

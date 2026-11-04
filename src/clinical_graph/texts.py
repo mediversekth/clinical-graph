@@ -1,7 +1,11 @@
-"""Which concepts are embedded, and with which texts.
+"""The texts that find a concept: what the search indexes hold.
 
-Every *current* concept is embedded, except grouping nodes that are not codes
-of their own (:data:`SKIPPED_KINDS`). A concept gets one row per distinct text
+Both the SapBERT embeddings (:mod:`clinical_graph.embeddings`) and the
+Elasticsearch indexes (:mod:`clinical_graph.elastic`) are built from these, so
+the two retrievers see the same concepts and the same texts.
+
+Every *current* concept is indexed, except grouping nodes that are not codes of
+their own (:data:`SKIPPED_KINDS`). A concept gets one row per distinct text
 (case and whitespace ignored), its name first:
 
 * every vocabulary: ``name``, then each of ``synonyms`` (``synonym``)
@@ -52,8 +56,8 @@ class Text:
     text: str
 
 
-def is_embedded(concept: Concept) -> bool:
-    """Whether a concept gets embeddings: current, and not a grouping node."""
+def is_indexed(concept: Concept) -> bool:
+    """Whether a concept is searchable: current, and not a grouping node."""
     skipped = SKIPPED_KINDS.get(concept.vocabulary, frozenset())
     return concept.active and concept.kind not in skipped
 
@@ -120,16 +124,24 @@ def concept_texts(concept: Concept, related_ok: set[str] | None = None) -> list[
     return texts
 
 
-def iter_texts(concepts: Iterable[Concept]) -> Iterator[Text]:
-    """The texts of every embedded concept, concept by concept.
+def iter_concept_texts(
+    concepts: Iterable[Concept],
+) -> Iterator[tuple[Concept, list[Text]]]:
+    """Every indexed concept with its texts.
 
     Reads ``concepts`` once into memory: the LOINC related names are kept or
     dropped by how many terms share them.
     """
-    embedded = [c for c in concepts if is_embedded(c)]
+    indexed = [c for c in concepts if is_indexed(c)]
     uses = Counter(
-        name for c in embedded for name in {n.lower() for n in _related_names(c)}
+        name for c in indexed for name in {n.lower() for n in _related_names(c)}
     )
     related_ok = {n for n, k in uses.items() if k <= RELATED_NAME_MAX_CODES}
-    for concept in embedded:
-        yield from concept_texts(concept, related_ok)
+    for concept in indexed:
+        yield concept, concept_texts(concept, related_ok)
+
+
+def iter_texts(concepts: Iterable[Concept]) -> Iterator[Text]:
+    """The texts of every indexed concept, concept by concept."""
+    for _, texts in iter_concept_texts(concepts):
+        yield from texts
