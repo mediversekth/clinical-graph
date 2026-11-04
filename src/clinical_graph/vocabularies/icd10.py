@@ -379,6 +379,8 @@ class Icd10Reader(VocabularyReader):
         """
         if vocabulary is not Vocabulary.ICD10:
             return None
+        if "-" in code:
+            return self._match_range(code)
         categories = self._classes
         if code in categories and categories[code].kind == "category":
             return self._id(code), "exact"
@@ -392,6 +394,27 @@ class Icd10Reader(VocabularyReader):
             prefix = prefix[:-1].rstrip(".")
             if prefix in categories and categories[prefix].kind == "category":
                 return self._id(prefix), "ancestor"
+        return None
+
+    @cached_property
+    def _ranges(self) -> dict[str, str]:
+        """Block and chapter range (``E10-E14``, ``E00-E90``) -> id."""
+        ranges: dict[str, str] = {}
+        for code, cls in self._classes.items():
+            if cls.kind == "block":
+                ranges[code] = self._id(code)
+            elif cls.kind == "chapter":
+                ranges[self._chapter_range(cls)] = self._id(code)
+        return ranges
+
+    def _match_range(self, code: str) -> tuple[str, str] | None:
+        """A block or chapter by its range; UMLS writes ``D55-D59.9``, ``F99-F99.9``."""
+        start, _, end = code.strip().upper().partition("-")
+        end = end.split(".", 1)[0]
+        for candidate in (f"{start}-{end}", start if start == end else None):
+            if candidate and candidate in self._ranges:
+                how = "exact" if candidate == code else "normalised"
+                return self._ranges[candidate], how
         return None
 
     def iter_mappings(self) -> Iterator[Mapping]:

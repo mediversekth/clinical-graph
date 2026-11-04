@@ -81,7 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
         "source",
         nargs="*",
         help="sources.toml keys (default: all): "
-        "snomed loinc_extension loinc icd10cm icd10 rxnorm",
+        "snomed loinc_extension loinc icd10cm icd10 rxnorm icf",
     )
     ing.add_argument(
         "--batch-size", type=int, default=10_000, help="rows per transaction"
@@ -104,7 +104,7 @@ def build_parser() -> argparse.ArgumentParser:
         "source",
         nargs="*",
         help="sources.toml keys whose maps to write (default: all): "
-        "snomed snomed_icd10cm loinc loinc_extension rxnorm",
+        "snomed snomed_icd10cm loinc loinc_extension rxnorm umls",
     )
     bnd.add_argument(
         "--batch-size", type=int, default=10_000, help="rows per transaction"

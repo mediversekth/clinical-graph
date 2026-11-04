@@ -287,19 +287,41 @@ class Icd10CmReader(VocabularyReader):
                 missed += not span
         return targets, missed
 
-    def match(self, vocabulary: Vocabulary, code: str) -> tuple[str, str] | None:
-        """Resolve a map target to an ICD-10-CM code (ICD-10-PCS: exact only).
+    @cached_property
+    def _ranges(self) -> dict[str, str]:
+        """ICD-10-CM block and chapter range (``E08-E13``, ``E00-E89``) -> id."""
+        tab = self._tabular
+        ranges = {r: _cm(f"chapter:{n}") for n, r, _ in tab.chapters if r}
+        ranges |= {b: _cm(f"block:{b}") for b, _, _ in tab.blocks}
+        return ranges
 
-        Tried in order: the code as given (``exact``); trimmed and upper-cased
-        (``normalised``); the longest prefix that is a code (``ancestor``): a
-        code retired from this release, or a target whose 7th character is left
-        open (``S72.001?`` -> ``S72.001``, ``M48.40X?`` -> ``M48.40``).
+    def match(self, vocabulary: Vocabulary, code: str) -> tuple[str, str] | None:
+        """Resolve a code published elsewhere to an ICD-10-CM / ICD-10-PCS concept.
+
+        ICD-10-CM, tried in order: the code as given (``exact``), or a block or
+        chapter by its range (``E08-E13``; UMLS writes one-category blocks as
+        ``F99-F99``); trimmed and upper-cased (``normalised``); the longest
+        prefix that is a code (``ancestor``): a code retired from this release,
+        or a target whose 7th character is left open (``S72.001?`` ->
+        ``S72.001``, ``M48.40X?`` -> ``M48.40``). ICD-10-PCS: the code, or the
+        table of a 3-character code (``08P``), both ``exact``.
 
         Returns:
             The concept id and how it matched, or ``None``.
         """
-        if vocabulary is not Vocabulary.ICD10CM:
+        if vocabulary is Vocabulary.ICD10PCS:
+            if len(code) == 3:
+                table = concept_id(Vocabulary.ICD10PCS, f"table:{code}")
+                return (table, "exact") if table in self.concept_ids else None
             return super().match(vocabulary, code)
+        if vocabulary is not Vocabulary.ICD10CM:
+            return None
+        if "-" in code:
+            start, _, end = code.strip().upper().partition("-")
+            found = self._ranges.get(code) or self._ranges.get(
+                start if start == end else f"{start}-{end}"
+            )
+            return (found, "exact") if found else None
         codes = self._codes
         if code in codes:
             return _cm(code), "exact"

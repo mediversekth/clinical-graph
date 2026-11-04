@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "clinical-graph"
 version = "0.1.0"
-description = "A graph of clinical vocabularies (SNOMED CT, LOINC, ICD-10-CM/PCS) and their bindings"
+description = "A graph of clinical vocabularies (SNOMED CT, LOINC, ICD-10-CM/PCS, ICD-10, RxNorm, ATC) and their bindings"
 readme = "README.md"
 license = "Apache-2.0"
 authors = [{ name = "Andra Ionescu", email = "adio@kth.se" }]

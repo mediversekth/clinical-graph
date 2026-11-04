@@ -7,7 +7,7 @@ they create.
 
 ```bash
 uv run clinical-graph ingest --dry-run          # read and count, no Neo4j
-uv run clinical-graph ingest                    # all: snomed loinc_extension loinc icd10cm icd10 rxnorm
+uv run clinical-graph ingest                    # all: snomed loinc_extension loinc icd10cm icd10 rxnorm icf
 uv run clinical-graph ingest loinc icd10cm      # some of them
 uv run clinical-graph ingest snomed --replace   # delete the source's nodes first (after a release update)
 uv run clinical-graph bind --dry-run            # read and resolve the maps, no Neo4j
@@ -16,6 +16,7 @@ uv run clinical-graph bind snomed_icd10cm       # SNOMED CT -> ICD-10-CM (NLM ma
 uv run clinical-graph bind loinc                # LOINC part -> SNOMED CT, RxNorm
 uv run clinical-graph bind rxnorm               # RxNorm -> ATC, SNOMED CT
 uv run clinical-graph bind loinc_extension      # LOINC term -> SNOMED CT (LOINC Extension)
+uv run clinical-graph bind umls                 # UMLS shared CUIs: the links still missing (last)
 ```
 
 The connection is configured by `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`
@@ -29,12 +30,13 @@ International hierarchy, so run `ingest loinc_extension` after it.
 
 ## Sharing the database
 
-The local Neo4j is the Community instance set up in the mediverse project.
-Community has a single user database, so this graph lives next to mediverse's
-nodes (`ObjectConcept`, `ICD10Concept`, `LOINCConcept`, `ClinGraphNode`, MIMIC
-nodes, ...). The two never mix:
+Neo4j is set up as described in the [README](../README.md#neo4j). Community has a
+single user database, so if other projects use the same instance (locally,
+mediverse: `ObjectConcept`, `ICD10Concept`, `LOINCConcept`, `ClinGraphNode`, MIMIC
+nodes, ...), this graph lives next to their nodes. They never mix:
 
-- every node created here has the `Concept` label, which mediverse does not use;
+- every node created here has the `Concept` label, which the others must not use
+  (mediverse does not);
 - `--replace` and `delete_vocabulary` only delete `Concept` nodes;
 - relationship types such as `ISA` exist in both, so always anchor queries on a
   label: `MATCH (:SNOMEDCT)-[:ISA]->(:SNOMEDCT)`, not `MATCH ()-[:ISA]->()`.
@@ -52,6 +54,7 @@ Every node: `:Concept` plus exactly one vocabulary label.
 | `ICD10` | WHO ICD-10 2019 | 16,751 | `chapter`, `block`, `code` |
 | `RXNORM` | RxNorm full release 20261102, with obsolete concepts | 230,470 (125k current) | `ingredient`, `clinical_drug`, `branded_drug`, ... (one per term type) |
 | `ATC` | WHO ATC, as in RxNorm (ATC 2026-01-28) | 7,000 | `anatomical_group`, `therapeutic_group`, `pharmacological_group`, `chemical_group`, `substance` |
+| `ICF` | WHO ICF, 2026-01 release | 1,665 | `section`, `component`, `chapter`, `block`, `category`, `qualifier_group`, `qualifier` |
 
 Constraint and indexes: `concept_id` (unique `Concept.id`), range indexes on
 `Concept.code` and `Concept.kind`, full-text index `concept_name` on `Concept.name`.
@@ -61,7 +64,7 @@ Constraint and indexes: `concept_id` (unique `Concept.id`), range indexes on
 | Property | Description |
 | --- | --- |
 | `id` | `<vocabulary>:<key>`, unique; see below |
-| `vocabulary` | `snomed`, `loinc`, `icd10cm`, `icd10pcs`, `icd10`, `rxnorm`, `atc` |
+| `vocabulary` | `snomed`, `loinc`, `icd10cm`, `icd10pcs`, `icd10`, `rxnorm`, `atc`, `icf` |
 | `code` | code as published (`44054006`, `4548-4`, `E11.9`, block range `E08-E13`) |
 | `name` | display name (see per vocabulary) |
 | `kind` | node type within the vocabulary |
@@ -78,6 +81,7 @@ Constraint and indexes: `concept_id` (unique `Concept.id`), range indexes on
 | `icd10:E11.9`, `icd10:block:E10-E14`, `icd10:chapter:4` | WHO ICD-10 code, block, chapter |
 | `rxnorm:6809`, `rxnorm:861007` | RxNorm concept (RXCUI): metformin; metformin hydrochloride 500 MG Oral Tablet |
 | `atc:A10BA02`, `atc:A10` | ATC code: metformin; drugs used in diabetes |
+| `icf:d4500`, `icf:block:b110-b139`, `icf:chapter:b1`, `icf:component:b` | ICF category (*Walking short distances*), block, chapter, component |
 
 ### `SNOMEDCT`
 
@@ -206,6 +210,39 @@ substance can have several codes (mesna `R05CB05`, `V03AF01`). About 1,900
 substances have no RxNorm ingredient (not marketed in the US). No DDDs: those are
 only in WHO's paid ATC/DDD index.
 
+### `ICF`
+
+WHO's International Classification of Functioning, Disability and Health, from
+the simple tabulation of the 2026-01 ICD-11 platform release. `name` is WHO's
+title. The hierarchy:
+
+| `kind` | Nodes | Example (`id`, `name`) |
+| --- | --- | --- |
+| `section` | 2 | `icf:section:category` *ICF Category*, `icf:section:qualifier` *ICF Qualifier* |
+| `component` | 4 | `icf:component:b` *Body functions* (`s` body structures, `d` activities and participation, `e` environmental factors) |
+| `chapter` | 30 | `icf:chapter:b1` *Mental functions* |
+| `block` | 37 | `icf:block:b110-b139` *Global mental functions* |
+| `category` | 1,543 | `icf:b110` *Consciousness functions* (1st level) ... `icf:b11420` *Orientation to self* (4th level) |
+| `qualifier_group` | 5 | `icf:qualifier_group:1437901287` *Extent or magnitude of impairment* |
+| `qualifier` | 44 | `icf:qi0` ... `icf:qi9`; `icf:qb0` *NO barrier*, `icf:qf0` *NO facilitator*, ... |
+
+The tabulation gives groupings no code; component, chapter and block codes are
+derived from the categories under them (`b`, `b1`, `b110-b139`), as ICF and UMLS
+write them; WHO's own block identifier is kept as `block_id` (`BlockL3-b11`).
+Qualifier groups are keyed by their WHO entity number. Properties:
+
+| Property | Description |
+| --- | --- |
+| `uri` | ICF linearization URI (`http://id.who.int/icd/release/11/icf/1060289548`) |
+| `foundation_uri` | WHO-FIC Foundation entity, shared with ICD-11; not on the 507 residual categories, which exist only in ICF |
+| `component` | `b`, `s`, `d`, `e`, or `q` for qualifiers (not on `section:category`) |
+| `is_residual` | *other specified* (`…8`) or *unspecified* (`…9`) category |
+| `is_leaf` | no children |
+| `block_id` | WHO's block identifier, on components, chapters and blocks |
+| `coding_note` | where WHO gives one (1 category) |
+
+No definitions, inclusions or exclusions (not in the tabulation; ICD API only).
+
 ## Relationships
 
 Within a vocabulary, relationships only join two nodes with the same vocabulary
@@ -311,6 +348,12 @@ drug model.
 | --- | --- |
 | `ISA` | each code → the code of the level above (`A10BA02` → `A10BA` → `A10B` → `A10` → `A`) |
 
+### `ICF`
+
+| Type | From → to |
+| --- | --- |
+| `ISA` | each node → its parent in the tabulation (`b1100` → `b110` → `block:b110-b139` → `chapter:b1` → `component:b` → `section:category`; `qi0` → its qualifier group → `section:qualifier`) |
+
 ## Bindings (`MAPS_TO`)
 
 `clinical-graph bind` writes each map row as a `MAPS_TO` edge from a concept of
@@ -327,7 +370,22 @@ edges (by `provenance`).
 
 Common properties: `provenance` (which map), `id` (the map row's id; edge
 identity together with `provenance`), `equivalence`, `target_code` (code as the
-map publishes it), `match`.
+map publishes it), `match`. UMLS edges also have `source_code` and `source_match`
+(both ends come from UMLS's copies of the vocabularies).
+
+| Edges by `provenance` | From → to | Edges |
+| --- | --- | --- |
+| `SNOMED CT International map to ICD-10 (refset 447562003)` | `SNOMEDCT` → `ICD10` | 179,449 |
+| `NLM SNOMED CT map to ICD-10-CM (refset 6011000124106)` | `SNOMEDCT` → `ICD10CM` | 252,218 |
+| `SNOMED CT LOINC Extension: LOINC code identifiers` | `LOINC` → `SNOMEDCT` | 46,981 |
+| `LOINC part map to SNOMED CT (PartRelatedCodeMapping)` | `LOINC` → `SNOMEDCT` | 6,662 |
+| `LOINC part map to RxNorm (PartRelatedCodeMapping)` | `LOINC` → `RXNORM` | 988 |
+| `RxNorm: ATC codes of RxNorm concepts (SAB=ATC)` | `RXNORM` → `ATC` | 3,761 |
+| `RxNorm: SNOMED CT US atoms of RxNorm concepts (SAB=SNOMEDCT_US)` | `RXNORM` → `SNOMEDCT` | 18,520 |
+| `UMLS Metathesaurus (shared CUI)` | all pairs, see below | 38,764 |
+
+The official maps come first; UMLS only adds pairs none of them has. To use only
+reviewed maps: `WHERE m.provenance <> 'UMLS Metathesaurus (shared CUI)'`.
 
 ### `SNOMEDCT` → `ICD10`
 
@@ -421,6 +479,53 @@ product forms, `IN`/`PIN`/`MIN`: substances). 353 SNOMED CT codes are US-only dr
 not in the loaded release and are skipped. The release has 28k more SNOMED CT drug
 concepts in concepts without an RxNorm atom; they have no RxNorm counterpart.
 
+### UMLS (shared CUIs)
+
+From the UMLS Metathesaurus 2026AA (`MRCONSO.RRF`, source `umls`), `provenance`
+`UMLS Metathesaurus (shared CUI)`: two codes of two loaded vocabularies in the same
+UMLS concept (CUI) are synonyms, `equivalent`; `id` and `cui` are the CUI. Only
+current atoms (`SUPPRESS=N`) of SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS,
+ICD10, ICF and ICF-CY (both `ICF`) are used. Both codes are resolved against the graph (`source_code`,
+`source_match`, `target_code`, `match`: `exact` or `normalised`, never a broader
+code), and **only pairs that no official map links** are written (once, whatever
+the direction): 82k pairs resolve, 43k of them are linked already.
+
+| From → to | New edges | Examples |
+| --- | --- | --- |
+| `ICD10CM` → `ICD10` | 11,342 | `B71.0` Hymenolepiasis → `B71.0`; `T36.2X1` → `T36.2` |
+| `LOINC` → `SNOMEDCT` | 9,004 | parts: *Blood* → Blood; *Calorie intake* → Energy intake |
+| `SNOMEDCT` → `ATC` | 6,748 | Ferrous fumarate → `B03AA02` |
+| `SNOMEDCT` → `ICD10CM` | 5,051 | Posterior scleritis → `H15.03` |
+| `LOINC` → `ATC` | 1,704 | *Phentermine* → `A08AA01` |
+| `SNOMEDCT` → `ICD10` | 1,445 | Malignant neoplasm of gum → `C03` |
+| `RXNORM` → `SNOMEDCT` | 1,152 | cinoxate → Cinoxate |
+| `LOINC` → `RXNORM` | 944 | *Methamphetamine* → methamphetamine |
+| `LOINC` → `ICD10CM`, `ICD10`, `ICD10PCS` | 373, 204, 4 | *Fever* → `R50.9` |
+| `SNOMEDCT` → `ICD10PCS` | 90 | Fluoroscopy of colon → `BD14ZZZ` |
+| `RXNORM` → `ATC` | 8 | |
+| `SNOMEDCT` → `ICF` | 354 | Adrenal structure → `s5803` Adrenal gland; Kingdom Animalia → `e2201` Animals |
+| `LOINC` → `ICF` | 313 | parts: *Adrenal gland* → `s5803` |
+| `ICD10CM` → `ICF`, `ICD10` → `ICF` | 19, 9 | `M54.9` Dorsalgia, unspecified → `b28013` Pain in back |
+
+Edges point from the earlier vocabulary of LOINC, RxNorm, SNOMED CT, ATC,
+ICD-10-CM, ICD-10-PCS, ICD-10, ICF, following the official maps. Blocks and chapters
+match by their range (`E08-E13`; WHO's `D55-D59.9`), PCS tables by their 3
+characters, ICF blocks, chapters and components by their derived code
+(`b110-b139`, `b1`, `b`). Not linked: LOINC answers (`LA`, not nodes), UMLS-made codes
+(`MTHU...`), PCS axis codes, US-only or newer SNOMED CT concepts, the 1998 WHO
+codes UMLS has that the 2019 edition dropped, and the 3 ICF 2008 codes the
+2026-01 release no longer has (`b7209`, `s2302`, `s76009`).
+
+UMLS synonymy is looser than the reviewed maps: an *unspecified* code often shares
+a CUI with its category (`Q70.9` *Syndactyly, unspecified* → `Q70`), and LOINC parts
+naming a condition link to diagnosis codes. ICD-10-PCS barely appears in UMLS
+CUIs with other vocabularies (94 edges): there is still no real map for it.
+ICF links are mostly body structures (`s`) to anatomy and body functions (`b`) to
+findings; activities and participation (`d`) and environmental factors (`e`)
+barely share CUIs, and no official map to ICF exists.
+After re-binding an official map, run `bind umls --replace` so UMLS fills only
+what is still missing.
+
 ## Example queries
 
 ```cypher
@@ -454,6 +559,15 @@ RETURN d.name, i.name, a.code, collect(c.code + ' ' + c.name) AS atc_path;
 MATCH (:ATC {code: 'A10B'})<-[:ISA*0..]-(:ATC)<-[:MAPS_TO]-(i:RXNORM)
 MATCH (d:RXNORM {kind: 'clinical_drug', active: true})-[:CONSISTS_OF]->()-[:HAS_INGREDIENT]->(i)
 RETURN DISTINCT d.code, d.name;
+
+// ICF categories for a SNOMED CT concept and its descendants, through UMLS
+MATCH (d:SNOMEDCT)(()-[r:ISA WHERE r.active]->())*(:SNOMEDCT {code: '23451007'})
+MATCH (d)-[:MAPS_TO]->(f:ICF)
+RETURN DISTINCT f.code, f.name;
+
+// The WHO ICD-10 code(s) for an ICD-10-CM code, through UMLS
+MATCH (cm:ICD10CM {code: 'B71.0'})-[m:MAPS_TO]-(w:ICD10)
+RETURN cm.code, w.code, w.name, m.provenance;
 
 // SNOMED CT concepts an ICD-10 code from an EHR (stored without dot) stands for
 MATCH (i:ICD10 {code_no_dot: 'E119'})<-[m:MAPS_TO WHERE m.active AND m.map_rule = 'TRUE']-(s:SNOMEDCT)

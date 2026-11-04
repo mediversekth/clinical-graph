@@ -29,6 +29,11 @@ class VocabularyReader(ABC):
     CT LOINC Extension): its nodes carry this as their ``extension`` property, and
     ``ingest --replace`` deletes only them; the base reader's (``None``) deletes
     only nodes without one."""
+    supplementary: ClassVar[bool] = False
+    """The reader's mappings join codes published by other sources (UMLS: codes
+    sharing a CUI), so ``bind`` resolves both ends, accepts only exact or
+    normalised matches (a broader code is not a synonym), and writes only pairs
+    of concepts that no other map links yet. Bind it after the others."""
 
     def __init__(self, source: Source, raw_dir: Path | None = None) -> None:
         """Bind the reader to a release on disk.

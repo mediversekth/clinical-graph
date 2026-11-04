@@ -12,8 +12,8 @@ uv run ruff check . && uv run ruff format .
 uv run pyright                      # strict
 uv run clinical-graph sources verify
 uv run clinical-graph ingest --dry-run   # readers only, no Neo4j
-uv run clinical-graph ingest [snomed loinc_extension loinc icd10cm icd10 rxnorm] [--replace]
-uv run clinical-graph bind [snomed snomed_icd10cm loinc loinc_extension rxnorm] [--dry-run] [--replace]   # MAPS_TO, after ingest
+uv run clinical-graph ingest [snomed loinc_extension loinc icd10cm icd10 rxnorm icf] [--replace]
+uv run clinical-graph bind [snomed snomed_icd10cm loinc loinc_extension rxnorm umls] [--dry-run] [--replace]   # MAPS_TO, after ingest
 ```
 
 ## Conventions
@@ -30,9 +30,10 @@ uv run clinical-graph bind [snomed snomed_icd10cm loinc loinc_extension rxnorm] 
   Relationship types: UPPER_SNAKE_CASE (`ISA`, `FINDING_SITE`, `REPLACED_BY`);
   `ISA` (child -> parent) is the hierarchy in every vocabulary.
 - Reader file paths are templates: `{v}` is filled from the source's `version`.
-- Neo4j: the Community instance from mediverse, one shared database. Every node
+- Neo4j: Community 2026.09 set up as in the README (one database, possibly shared
+  with other projects such as mediverse). Every node
   here is `:Concept` plus a vocabulary label (`SNOMEDCT`, `LOINC`, `ICD10CM`,
-  `ICD10PCS`, `ICD10`, `RXNORM`, `ATC`); never touch nodes without `:Concept`. Relations only join
+  `ICD10PCS`, `ICD10`, `RXNORM`, `ATC`, `ICF`); never touch nodes without `:Concept`. Relations only join
   nodes with the same vocabulary label; the only edges across vocabularies are
   `MAPS_TO`, written by `bind` from readers' `iter_mappings` after resolving each
   target with the target reader's `match`. Schema: `docs/graph_schema.md` (keep it
@@ -52,4 +53,7 @@ uv run clinical-graph bind [snomed snomed_icd10cm loinc loinc_extension rxnorm] 
 - RxNorm (`rxnorm`) brings two vocabularies, `RXNORM` and `ATC` (the ATC atoms of
   the release); RxNorm keeps obsolete concepts (`active: false`), and an RxNorm
   edge's `active` is "both ends current".
+- UMLS (`umls`) is a `supplementary` reader: shared-CUI pairs, both ends resolved,
+  no `ancestor` matches, and only pairs no other `MAPS_TO` links; it stays last in
+  `READERS` and is bound after the official maps.
 - No tests: the user does not want them. New commands go in `cli.py`.
