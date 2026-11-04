@@ -130,6 +130,7 @@ Files used:
 | `AccessoryFiles/ComponentHierarchyBySystem/ComponentHierarchyBySystem.csv` | component hierarchy |
 | `AccessoryFiles/GroupFile/{Group,GroupLoincTerms,ParentGroup}.csv` | groups (optional) |
 | `AccessoryFiles/PanelsAndForms/PanelsAndForms.csv` | panel membership (optional) |
+| `AccessoryFiles/ConsumerName/ConsumerName.csv` | consumer names of the terms (optional) |
 | `AccessoryFiles/AnswerFile/{AnswerList,LoincAnswerListLink}.csv` | answer lists (optional) |
 
 ## ICD-10-CM and ICD-10-PCS (US)
@@ -156,7 +157,7 @@ Files used:
 | `2027-code-tables-tabular-index/Table and Index/icd10cm_tabular_2027.xml` | chapters, blocks, codes, tabular notes |
 | `2027-code-descriptions-tabular-order/Code Descriptions/icd10cm_order_2027.txt` | all codes + headers with titles |
 | `2027-code-descriptions-tabular-order/Code Descriptions/icd10cm_codes_2027.txt` | billable codes (optional) |
-| `2027-code-tables-tabular-index/Table and Index/icd10cm_index_2027.xml` | alphabetic index (optional) |
+| `2027-code-tables-tabular-index/Table and Index/icd10cm_index_2027.xml` | alphabetic index: index terms of the codes (optional) |
 | `2027-icd-10-pcs-order-file-long-abbreviated-titles/icd10pcs_order_2027.txt` | ICD-10-PCS codes + table headers |
 
 This is the **US clinical modification**, not WHO ICD-10. The two share most

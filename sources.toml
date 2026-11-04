@@ -247,6 +247,11 @@ purpose = "Panel -> member terms"
 required = false
 
 [[sources.loinc.files]]
+path = "AccessoryFiles/ConsumerName/ConsumerName.csv"
+purpose = "Consumer-friendly names of the terms (since 2.8x not in Loinc.csv)"
+required = false
+
+[[sources.loinc.files]]
 path = "AccessoryFiles/AnswerFile/AnswerList.csv"
 purpose = "Answer lists and answers (LA codes)"
 required = false

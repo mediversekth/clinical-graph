@@ -14,6 +14,9 @@ uv run clinical-graph sources verify
 uv run clinical-graph ingest --dry-run   # readers only, no Neo4j
 uv run clinical-graph ingest [snomed loinc_extension loinc icd10cm icd10 rxnorm icf] [--replace]
 uv run clinical-graph bind [snomed snomed_icd10cm loinc loinc_extension rxnorm umls] [--dry-run] [--replace]   # MAPS_TO, after ingest
+uv run clinical-graph embed build [sources] [--overwrite]   # SapBERT -> data/processed/embeddings/sapbert/<source>/
+uv run clinical-graph embed load [sources] [--replace]      # node `embedding` + vector indexes, after ingest
+uv run clinical-graph embed search TEXT -v VOCABULARY [--graph]
 ```
 
 ## Conventions
@@ -56,4 +59,10 @@ uv run clinical-graph bind [snomed snomed_icd10cm loinc loinc_extension rxnorm u
 - UMLS (`umls`) is a `supplementary` reader: shared-CUI pairs, both ends resolved,
   no `ancestor` matches, and only pairs no other `MAPS_TO` links; it stays last in
   `READERS` and is bound after the official maps.
+- Embeddings (SapBERT only) live in `embeddings/`: texts come from the readers'
+  `Concept` records (`texts.py` says which concepts and texts), one folder per
+  source on disk, one vector index per vocabulary label in Neo4j
+  (`concept_embedding_<label>`, on `embedding`, the name's vector). Community
+  Edition cannot store the `VECTOR` type: write with
+  `db.create.setNodeVectorProperty`.
 - No tests: the user does not want them. New commands go in `cli.py`.

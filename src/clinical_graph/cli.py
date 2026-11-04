@@ -55,6 +55,53 @@ def _cmd_bind(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_embed_build(args: argparse.Namespace) -> int:
+    from clinical_graph.embeddings import build, embedding_sources
+
+    for key in args.source or embedding_sources():
+        build(
+            key,
+            batch_size=args.batch_size,
+            overwrite=args.overwrite,
+            device=args.device,
+        )
+    return 0
+
+
+def _cmd_embed_load(args: argparse.Namespace) -> int:
+    from clinical_graph.embeddings import load
+
+    for key, counts in load(
+        args.source or None, batch_size=args.batch_size, replace=args.replace
+    ).items():
+        print(f"[{key}]")
+        for name, n in counts.items():
+            print(f"  {name:50} {n:>10,}")
+    return 0
+
+
+def _cmd_embed_search(args: argparse.Namespace) -> int:
+    from clinical_graph.embeddings import EmbeddingIndex, search_graph
+    from clinical_graph.model import Vocabulary
+
+    vocabulary = Vocabulary(args.vocabulary)
+    if args.graph:
+        results = search_graph(args.text, vocabulary, top_k=args.top_k, kind=args.kind)
+        for text, hits in zip(args.text, results, strict=True):
+            print(f"{text}:")
+            for hit in hits:
+                print(f"  {hit['score']:.3f}  {hit['id']:28} {hit['name']}")
+        return 0
+    index = EmbeddingIndex.load(vocabulary)
+    for text, hits in zip(args.text, index.search(args.text, args.top_k), strict=True):
+        print(f"{text}:")
+        for hit in hits:
+            print(
+                f"  {hit['score']:.3f}  {hit['id']:28} {hit['text']} ({hit['origin']})"
+            )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(prog="clinical-graph", description=__doc__)
@@ -119,6 +166,57 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run", action="store_true", help="read and resolve only; no Neo4j"
     )
     bnd.set_defaults(func=_cmd_bind)
+
+    emb = sub.add_parser("embed", help="SapBERT embeddings of the concepts")
+    esub = emb.add_subparsers(dest="action", required=True)
+    keys_help = (
+        "sources.toml keys (default: all): "
+        "snomed loinc_extension loinc icd10cm icd10 rxnorm icf"
+    )
+    ebuild = esub.add_parser(
+        "build", help="embed the concepts' texts and save them under data/processed"
+    )
+    ebuild.add_argument("source", nargs="*", help=keys_help)
+    ebuild.add_argument("--batch-size", type=int, default=256, help="texts per pass")
+    ebuild.add_argument(
+        "--overwrite", action="store_true", help="rebuild even if up to date"
+    )
+    ebuild.add_argument("--device", help="torch device (default: cuda if available)")
+    ebuild.set_defaults(func=_cmd_embed_build)
+
+    eload = esub.add_parser(
+        "load",
+        help="write the name vectors onto the Neo4j nodes and create the vector "
+        "indexes (after ingest)",
+    )
+    eload.add_argument("source", nargs="*", help=keys_help)
+    eload.add_argument(
+        "--batch-size", type=int, default=2_000, help="nodes per transaction"
+    )
+    eload.add_argument(
+        "--replace",
+        action="store_true",
+        help="remove the source's node embeddings first (after a release update)",
+    )
+    eload.set_defaults(func=_cmd_embed_load)
+
+    esearch = esub.add_parser("search", help="nearest concepts of one vocabulary")
+    esearch.add_argument("text", nargs="+", help="query texts")
+    esearch.add_argument(
+        "--vocabulary",
+        "-v",
+        required=True,
+        help="snomed loinc icd10cm icd10pcs icd10 rxnorm atc icf",
+    )
+    esearch.add_argument("--top-k", "-k", type=int, default=10)
+    esearch.add_argument(
+        "--graph",
+        action="store_true",
+        help="search the Neo4j vector index (names only) instead of the saved "
+        "embeddings (names and synonyms)",
+    )
+    esearch.add_argument("--kind", help="with --graph: only concepts of this kind")
+    esearch.set_defaults(func=_cmd_embed_search)
     return parser
 
 
@@ -126,6 +224,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI."""
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+    for name in ("httpx", "httpx2"):  # HuggingFace Hub requests
+        logging.getLogger(name).setLevel(logging.WARNING)
     return int(args.func(args))
 
 

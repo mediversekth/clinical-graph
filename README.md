@@ -102,6 +102,26 @@ map, run `bind umls --replace` so UMLS fills only what is still missing.
 Labels, properties, relationship types and example queries:
 [docs/graph_schema.md](docs/graph_schema.md).
 
+### Embeddings
+
+Every current concept is embedded with
+[SapBERT](https://huggingface.co/cambridgeltl/SapBERT-from-PubMedBERT-fulltext)
+(768-d, `[CLS]` pooling). One model is used for every vocabulary, so all vectors
+share one space. Each text of a concept is embedded: its name, synonyms, SNOMED
+CT FSN, LOINC display/short/consumer/related names and ICD-10-CM index entries.
+They are saved per source under `data/processed/embeddings/sapbert/<source>/`.
+Each node then gets its name's vector as `embedding`, and each vocabulary label
+gets its own vector index:
+
+```bash
+uv run clinical-graph embed build                 # all sources (GPU if available; resumes if interrupted)
+uv run clinical-graph embed load                  # name vectors onto the nodes + vector indexes (after ingest)
+uv run clinical-graph embed search "HbA1c" -v loinc            # saved embeddings: names and synonyms
+uv run clinical-graph embed search "HbA1c" -v loinc --graph --kind term   # Neo4j vector index: names
+```
+
+Details: [docs/graph_schema.md](docs/graph_schema.md#embeddings).
+
 ### Resources
 
 Measured on the current build:
@@ -141,6 +161,12 @@ src/clinical_graph/
 │   ├── writer.py            # batched MERGE; relations within, MAPS_TO across vocabularies
 │   ├── ingest.py            # ingest(), dry_run(), delete_vocabulary()
 │   └── bindings.py          # bind(): resolve both ends, write MAPS_TO edges
+├── embeddings/              # SapBERT embeddings of the concepts
+│   ├── texts.py             # which concepts, which texts (name, synonyms, ...)
+│   ├── encoder.py           # SapBERT ([CLS], L2-normalised)
+│   ├── store.py             # build(): readers -> data/processed/embeddings/sapbert/<source>/
+│   ├── graph.py             # load(): node `embedding` + per-label vector indexes; search_graph()
+│   └── search.py            # EmbeddingIndex: search over names and synonyms (memory-mapped)
 └── cli.py                   # `clinical-graph` command
 ```
 
@@ -174,7 +200,8 @@ New commands go in `cli.py`.
 4. Update `docs/sources.md` (release, sizes) and any counts in
    `docs/graph_schema.md`.
 5. Re-load: `ingest <key> --replace`, then `bind <key> --replace`, then
-   `bind umls --replace`.
+   `bind umls --replace`; then `embed build <key>` (rebuilds, since the
+   version changed) and `embed load <key> --replace`.
 
 ### Adding a source
 

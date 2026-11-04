@@ -56,6 +56,10 @@
         "sha256": "ee4ea05969b3fa84f25d9800bd66210b8078fa87f5f25849955414c3949a687a",
         "size": 24046592
       },
+      "AccessoryFiles/ConsumerName/ConsumerName.csv": {
+        "sha256": "81392f1797472edd5dcc8d69a0191f0460fb835a457382e7458c9b847c97c79f",
+        "size": 3378803
+      },
       "AccessoryFiles/GroupFile/Group.csv": {
         "sha256": "6e8d93ca5788da88f8c4c7902a1dd05b04abef5f0812a722b50b769920d448be",
         "size": 674019

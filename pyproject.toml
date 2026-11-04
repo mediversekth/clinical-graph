@@ -12,8 +12,21 @@ authors = [{ name = "Andra Ionescu", email = "adio@kth.se" }]
 requires-python = ">=3.13"
 dependencies = [
     "neo4j>=6.4.1",
+    "numpy>=2.3",
     "python-dotenv>=1.2.4",
+    "torch>=2.14",
+    "transformers>=4.57",
 ]
+
+# CUDA 13 builds of PyTorch on Linux (the GB10 / DGX Spark GPU), for the embeddings;
+# other platforms use the default PyPI build.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu130", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
 
 [project.scripts]
 clinical-graph = "clinical_graph.cli:main"

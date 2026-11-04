@@ -17,6 +17,8 @@ uv run clinical-graph bind loinc                # LOINC part -> SNOMED CT, RxNor
 uv run clinical-graph bind rxnorm               # RxNorm -> ATC, SNOMED CT
 uv run clinical-graph bind loinc_extension      # LOINC term -> SNOMED CT (LOINC Extension)
 uv run clinical-graph bind umls                 # UMLS shared CUIs: the links still missing (last)
+uv run clinical-graph embed build               # SapBERT embeddings to data/processed (see Embeddings)
+uv run clinical-graph embed load                # node `embedding` + one vector index per label
 ```
 
 The connection is configured by `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`
@@ -57,7 +59,9 @@ Every node: `:Concept` plus exactly one vocabulary label.
 | `ICF` | WHO ICF, 2026-01 release | 1,665 | `section`, `component`, `chapter`, `block`, `category`, `qualifier_group`, `qualifier` |
 
 Constraint and indexes: `concept_id` (unique `Concept.id`), range indexes on
-`Concept.code` and `Concept.kind`, full-text index `concept_name` on `Concept.name`.
+`Concept.code` and `Concept.kind`, full-text index `concept_name` on `Concept.name`,
+and after `embed load` one vector index per label on `embedding` (see
+[Embeddings](#embeddings)).
 
 ### Common properties
 
@@ -70,6 +74,7 @@ Constraint and indexes: `concept_id` (unique `Concept.id`), range indexes on
 | `kind` | node type within the vocabulary |
 | `active` | `false` for inactive / deprecated codes |
 | `synonyms` | list of other names |
+| `embedding` | SapBERT vector of `name` (768 floats), on current concepts after `embed load`; see [Embeddings](#embeddings) |
 
 | `id` example | Node |
 | --- | --- |
@@ -130,7 +135,7 @@ node. Loading a newer International release recovers both.
 
 | `kind` | Source | `name` | Extra properties |
 | --- | --- | --- | --- |
-| `term` | `Loinc.csv` | `LONG_COMMON_NAME` | `status`, `short_name`, `class`, `component`, `property`, `time_aspect`, `system`, `scale`, `method`, `order_obs` |
+| `term` | `Loinc.csv` | `LONG_COMMON_NAME` | `status`, `short_name`, `display_name`, `consumer_name` (`ConsumerName.csv`), `related_names` (`RELATEDNAMES2`, list), `class`, `component`, `property`, `time_aspect`, `system`, `scale`, `method`, `order_obs` |
 | `part` | `Part.csv` | `PartName` | `status`, `part_type`, `display_name` |
 | `hierarchy` | `ComponentHierarchyBySystem.csv`, LP codes that are not parts | `CODE_TEXT` | |
 | `group`, `parentgroup` | `GroupFile/` | group name | `status` |
@@ -141,8 +146,10 @@ is not `ACTIVE`.
 ### `ICD10CM` / `ICD10PCS`
 
 `name` is the long title. Codes have `billable` and `short_name`; ICD-10-CM codes
-also have `code_no_dot` (`E119`, the form MIMIC uses), and their `synonyms` are
-the tabular inclusion terms. Chapters and blocks have `chapter` (the chapter
+also have `code_no_dot` (`E119`, the form MIMIC uses), their `synonyms` are
+the tabular inclusion terms, and `index_terms` lists the alphabetic index entries
+that point to the code, each subterm joined to its parents (`Diabetes, diabetic
+type 2 with ketoacidosis`; nonessential modifiers left out). Chapters and blocks have `chapter` (the chapter
 number); a chapter's `code` is its range (`E00-E89`).
 
 ### `ICD10` (WHO)
@@ -525,6 +532,72 @@ findings; activities and participation (`d`) and environmental factors (`e`)
 barely share CUIs, and no official map to ICF exists.
 After re-binding an official map, run `bind umls --replace` so UMLS fills only
 what is still missing.
+
+## Embeddings
+
+`clinical-graph embed build` embeds every current concept with SapBERT
+(`cambridgeltl/SapBERT-from-PubMedBERT-fulltext`, `[CLS]` pooling,
+L2-normalised, 768-d). Inactive, deprecated and obsolete concepts are left out,
+as are the grouping nodes: ICD-10-CM / ICD-10 `chapter` and `block`, ICD-10-PCS
+`table`, LOINC `hierarchy`, `group` and `parentgroup`, and ICF `section`,
+`component`, `qualifier_group` and `qualifier`. One model is used for every
+vocabulary, so scores compare across vocabularies.
+
+Each distinct text of a concept is one vector (case and spacing ignored):
+
+| Vocabulary | Texts |
+| --- | --- |
+| all | `name`, each of `synonyms` |
+| `SNOMEDCT` | + the FSN without its semantic tag |
+| `LOINC` terms | + `display_name`, `short_name`, `consumer_name`, and the `related_names` that at most 20 terms share (the rest are words such as *Blood* or *Level*) |
+| `LOINC` parts | + `display_name` |
+| `ICD10CM` codes | + `index_terms` |
+
+They are saved per source in `data/processed/embeddings/sapbert/<source>/`:
+`texts.tsv` (`concept_id`, `origin`, `text`), `vectors.npy` (float16, row-aligned)
+and `info.json` (model, release version, counts). A build is skipped when
+`info.json` matches the model and the release in `sources.toml`.
+
+`clinical-graph embed load` puts the vector of each concept's **name** on its
+node as `embedding`. Synonym vectors stay on disk. It also creates one cosine
+vector index per label, with `kind` as a filter property:
+
+| Index | Label |
+| --- | --- |
+| `concept_embedding_snomedct` | `SNOMEDCT` (International and LOINC Extension) |
+| `concept_embedding_loinc` | `LOINC` |
+| `concept_embedding_icd10cm`, `concept_embedding_icd10pcs` | `ICD10CM`, `ICD10PCS` |
+| `concept_embedding_icd10` | `ICD10` |
+| `concept_embedding_rxnorm`, `concept_embedding_atc` | `RXNORM`, `ATC` |
+| `concept_embedding_icf` | `ICF` |
+
+With one index per label, a large vocabulary does not push a small one's hits
+out of the top k. Community Edition cannot store the `VECTOR` type, so the
+property is a float list (`LIST<FLOAT>`) written with
+`db.create.setNodeVectorProperty`. `ingest --replace` deletes the nodes and so
+their embeddings; run `embed load <source>` again after it. `embed load
+--replace` first removes the embeddings of the source's nodes, so concepts
+retired since lose theirs.
+
+To find a concept by any of its texts, not only its name, use
+`clinical-graph embed search` without `--graph`
+(`clinical_graph.embeddings.EmbeddingIndex`), which searches the saved
+synonym vectors. It memory-maps the float16 files and scores them in chunks, so
+the vectors sit once in the OS page cache, shared by every process, instead of
+in a private float32 copy in each (SNOMED CT: 1.2 GB shared vs 2.4 GB per
+process).
+
+```cypher
+// LOINC terms nearest to a SNOMED CT concept's name (the shared vector space)
+MATCH (s:SNOMEDCT {code: '43396009'})          // Hemoglobin A1c measurement
+MATCH (t:LOINC)
+  SEARCH t IN (VECTOR INDEX concept_embedding_loinc FOR s.embedding
+               WHERE t.kind = 'term' LIMIT 10) SCORE AS score
+RETURN t.code, t.name, score ORDER BY score DESC;
+```
+
+`SEARCH` is Cypher 25, the default language of this database. On a database
+that still defaults to Cypher 5, start the query with `CYPHER 25`.
 
 ## Example queries
 
