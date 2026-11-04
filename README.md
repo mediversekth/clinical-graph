@@ -1,4 +1,4 @@
-# clinical-graph
+# Clinical Graph
 
 A graph of clinical vocabularies and their bindings. It covers SNOMED CT (with the
 LOINC Extension), LOINC, ICD-10-CM/PCS, WHO ICD-10, RxNorm, ATC and WHO ICF, read directly
