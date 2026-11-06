@@ -33,6 +33,69 @@
     },
     "version": "2027"
   },
+  "icd9cm": {
+    "files": {
+      "ICD-9-CM-v32-master-descriptions/CMS32_DESC_LONG_DX.txt": {
+        "sha256": "37fee8081daddd6344005890bfeb2d77b18a67e68ce4ed1c1797964b5f554ee9",
+        "size": 897559
+      },
+      "ICD-9-CM-v32-master-descriptions/CMS32_DESC_LONG_SG.txt": {
+        "sha256": "6e2b5ae376afecee0872bc71df89d8e1acf1ce8ea09332037fe8c5e47ad77722",
+        "size": 182309
+      },
+      "ICD-9-CM-v32-master-descriptions/CMS32_DESC_SHORT_DX.txt": {
+        "sha256": "b71aeea396939360ba044f3eadaa12dac066525e419c962fc760b15579937404",
+        "size": 418158
+      },
+      "ICD-9-CM-v32-master-descriptions/CMS32_DESC_SHORT_SG.txt": {
+        "sha256": "def510300e9f96d58993147966797c8ebbba22df6a5e687ce0c6ef6d22824e52",
+        "size": 107145
+      }
+    },
+    "version": "32"
+  },
+  "icd9cm_gems": {
+    "files": {
+      "diagnosis_gems_2018/2018_I10gem.txt": {
+        "sha256": "fe679ddbdc2d3e2275574299ca8c2a5e21e0143136a6ae6290cc7dcec1042f2b",
+        "size": 1713453
+      },
+      "diagnosis_gems_2018/2018_I9gem.txt": {
+        "sha256": "44f4079c698efa2c0a8cc159f70075cf6cf23277fdd35ae3416b2bc516652ce3",
+        "size": 522060
+      },
+      "pcs_gems_2018/gem_i9pcs.txt": {
+        "sha256": "818fa8414ea43f8e523d5d87d3ba3033c111a9246ed794d2e59c70767b145c44",
+        "size": 1545453
+      },
+      "pcs_gems_2018/gem_pcsi9.txt": {
+        "sha256": "81594417f81fb88f722d3074246e5537398d2cd6863118112244d21cfb174b2b",
+        "size": 2121525
+      }
+    },
+    "version": "2018"
+  },
+  "icd9cm_snomed": {
+    "files": {
+      "ICD9CMV3_SNOMED_MAP_Procedure_202512/ICD9CMV3_SNOMED_MAP_1T1_202512.txt": {
+        "sha256": "f3e7879341cedc64744861afa6ac09dc18506438dd160f8a3c8c0e7f4c4e2a2f",
+        "size": 182959
+      },
+      "ICD9CMV3_SNOMED_MAP_Procedure_202512/ICD9CMV3_SNOMED_MAP_1TM_202512.txt": {
+        "sha256": "761aa31080db318c73f07837a2cb1e3063f5beb62482515f6926e8cbac454e7a",
+        "size": 207619
+      },
+      "ICD9CM_SNOMED_MAP_diagnosis_202512/ICD9CM_SNOMED_MAP_1TO1_202512.txt": {
+        "sha256": "f99280b26419af4ae924e75029624825f94259fed31b14d902d4fb9b6ac08ef2",
+        "size": 1009621
+      },
+      "ICD9CM_SNOMED_MAP_diagnosis_202512/ICD9CM_SNOMED_MAP_1TOM_202512.txt": {
+        "sha256": "c1e7c75c647dcf4ca837e2e0185d5c88d2df93139b52517b33d7ae078263be31",
+        "size": 6089674
+      }
+    },
+    "version": "202512"
+  },
   "icf": {
     "files": {
       "SimpleTabulation-ICF-en.txt": {

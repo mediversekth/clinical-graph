@@ -1,7 +1,7 @@
 # Sources
 
-The graph is built from six vocabulary releases (RxNorm also brings ATC), one
-SNOMED CT extension, one map release and the UMLS Metathesaurus (links only). None of them is stored in this
+The graph is built from seven vocabulary releases (RxNorm also brings ATC), one
+SNOMED CT extension, three map releases and the UMLS Metathesaurus (links only). None of them is stored in this
 repository: two need a (free) licence, and all are large. This page says what to
 download, where to put it, and how to check you have the same files.
 
@@ -20,6 +20,9 @@ used for the current build.
 | `rxnorm` | RxNorm Full Monthly Release (with ATC) | 2026-11-02 | UMLS licence (+ SNOMED CT for its SNOMED atoms) | ~1.3 GB |
 | `umls` | UMLS Metathesaurus, `MRCONSO.RRF` only | 2026AA | UMLS licence | ~2.3 GB (`MRCONSO`) |
 | `snomed_icd10cm` | SNOMED CT to ICD-10-CM Map (NLM), human-readable | 2026-09-01 | UMLS + SNOMED CT licence | ~110 MB |
+| `icd9cm` | ICD-9-CM Version 32 (CMS), code titles | FY2015 (final) | Public domain | ~1.3 MB |
+| `icd9cm_snomed` | ICD-9-CM to SNOMED CT Maps (NLM), diagnoses + procedures | 2025-12 | UMLS + SNOMED CT licence | ~7.5 MB |
+| `icd9cm_gems` | General Equivalence Mappings ICD-9-CM ↔ ICD-10-CM/PCS (CMS) | 2018 (final) | Public domain | ~13 MB |
 
 ## Directory layout
 
@@ -55,8 +58,14 @@ data/raw/
 ├── SnomedCT_LOINCExtension_PRODUCTION_LO1010000_20261021T120000Z/  # unzipped as-is
 │   ├── Snapshot/{Terminology,Refset}/
 │   └── Full/
-└── SNOMED_CT_to_ICD-10-CM_Resources_20260901/                   # unzipped as-is
-    └── tls_Icd10cmHumanReadableMap_US1000124_20260901.tsv
+├── SNOMED_CT_to_ICD-10-CM_Resources_20260901/                   # unzipped as-is
+│   └── tls_Icd10cmHumanReadableMap_US1000124_20260901.tsv
+└── icd9/                                                       # icd9cm, icd9cm_snomed, icd9cm_gems
+    ├── ICD-9-CM-v32-master-descriptions/                       # one folder per zip, named after it
+    ├── ICD9CM_SNOMED_MAP_diagnosis_202512/
+    ├── ICD9CMV3_SNOMED_MAP_Procedure_202512/
+    ├── diagnosis_gems_2018/                                    # 2018_I9gem.txt, 2018_I10gem.txt
+    └── pcs_gems_2018/                                          # gem_i9pcs.txt, gem_pcsi9.txt
 ```
 
 After downloading:
@@ -301,6 +310,94 @@ skipped: with International 20250901, 13,704 of 266k rows (11,091 newer
 International concepts, 2,613 US-extension concepts). A newer International release
 recovers most of the first group.
 
+## ICD-9-CM (US)
+
+- **Publisher:** CMS / CDC NCHS
+- **Release:** *ICD-9-CM Diagnosis and Procedure Codes: Abbreviated and Full Code
+  Titles*, Version 32, effective 2014-10-01 (FY2015). The last one: ICD-9-CM was
+  frozen in 2012 and replaced by ICD-10-CM/PCS on 2015-10-01.
+- **Licence:** public domain.
+- **Download:** [CMS](https://www.cms.gov/medicare/coding-billing/icd-10-codes/icd-9-cm-diagnosis-procedure-codes-abbreviated-and-full-code-titles),
+  *Version 32 Full and Abbreviated Code Titles – Effective October 1, 2014 (ZIP)*:
+
+  ```bash
+  mkdir -p data/raw/icd9 && cd data/raw/icd9
+  unzip -q ICD-9-CM-v32-master-descriptions.zip -d ICD-9-CM-v32-master-descriptions
+  ```
+
+Files used:
+
+| File | Used for |
+| --- | --- |
+| `CMS32_DESC_LONG_DX.txt` | billable diagnosis codes (volumes 1-2), full titles; Latin-1 |
+| `CMS32_DESC_SHORT_DX.txt` | billable diagnosis codes, abbreviated titles |
+| `CMS32_DESC_LONG_SG.txt` | billable procedure codes (volume 3), full titles |
+| `CMS32_DESC_SHORT_SG.txt` | billable procedure codes, abbreviated titles |
+
+Not read: the two `.xlsx` files (the same content). The CMS files list billable
+codes only, no headers (`250`, `250.0`) or chapters. Those come from the UMLS
+release (`umls`, `META/MRCONSO.RRF`, `SAB=ICD9CM`, `TTY=HT`: 3,957 headers and
+ranges with names); without it ICD-9-CM loads as a flat list. The NCHS tabular
+(RTF) is not needed.
+
+## ICD-9-CM to SNOMED CT Maps (NLM)
+
+- **Publisher:** U.S. National Library of Medicine
+- **Release:** December 2025 (`202512`), on the SNOMED CT US Edition 2025-09. NLM
+  updates it each December. Two zips: *ICD-9-CM Diagnostic Codes to SNOMED CT Map*
+  and *ICD-9-CM Procedure Codes to SNOMED CT Map*.
+- **Licence:** UMLS Metathesaurus Licence (free, UTS account) plus a SNOMED CT
+  affiliate licence. Don't redistribute it.
+- **Download:** [NLM map page](https://www.nlm.nih.gov/research/umls/mapping_projects/icd9cm_to_snomedct.html)
+  (UTS login). Without a browser, with the UTS API key:
+
+  ```bash
+  cd data/raw/icd9
+  for f in ICD9CM_SNOMED_MAP_diagnosis_202512 ICD9CMV3_SNOMED_MAP_Procedure_202512; do
+    curl -fL -o $f.zip "https://uts-ws.nlm.nih.gov/download?url=https://download.nlm.nih.gov/umls/kss/mappings/ICD9CM_TO_SNOMEDCT/$f.zip&apiKey=$UMLS_API_KEY"
+    unzip -q $f.zip -d $f
+  done
+  ```
+
+- **Load:** `uv run clinical-graph bind icd9cm_snomed` (after `icd9cm` and `snomed`).
+
+Files used:
+
+| File | Used for |
+| --- | --- |
+| `ICD9CM_SNOMED_MAP_diagnosis_202512/ICD9CM_SNOMED_MAP_1TO1_202512.txt` | **binding** diagnosis → one SNOMED CT concept |
+| `ICD9CM_SNOMED_MAP_diagnosis_202512/ICD9CM_SNOMED_MAP_1TOM_202512.txt` | **binding** diagnosis → several narrower SNOMED CT concepts |
+| `ICD9CMV3_SNOMED_MAP_Procedure_202512/ICD9CMV3_SNOMED_MAP_1T1_202512.txt` | **binding** procedure → one SNOMED CT concept |
+| `ICD9CMV3_SNOMED_MAP_Procedure_202512/ICD9CMV3_SNOMED_MAP_1TM_202512.txt` | **binding** procedure → several narrower SNOMED CT concepts |
+
+The maps target the US Edition: 16 target concepts are US-only and are skipped.
+
+## ICD-9-CM General Equivalence Mappings (CMS)
+
+- **Publisher:** CMS
+- **Release:** the 2018 GEMs, the last edition (CMS stopped them after FY2018).
+  Their ICD-10 codes are FY2018 codes; `bind` resolves them against the loaded
+  ICD-10-CM/PCS release, a retired ICD-10-CM code falling back to its parent.
+- **Licence:** public domain.
+- **Download:** [CMS ICD-10 codes](https://www.cms.gov/medicare/coding-billing/icd-10-codes),
+  the *2018 ICD-10-CM and GEMs* page (*2018 Diagnosis GEMs*) and the *2018
+  ICD-10-PCS and GEMs* page (*2018 ICD-10-PCS General Equivalence Mappings*,
+  `2018icd10pcsgeneralequivalencemappings.zip`). Unpack to
+  `data/raw/icd9/diagnosis_gems_2018/` and `data/raw/icd9/pcs_gems_2018/`.
+- **Load:** `uv run clinical-graph bind icd9cm_gems` (after `icd9cm` and `icd10cm`).
+
+Files used:
+
+| File | Used for |
+| --- | --- |
+| `diagnosis_gems_2018/2018_I9gem.txt` | **binding** ICD-9-CM → ICD-10-CM (forward) |
+| `diagnosis_gems_2018/2018_I10gem.txt` | **binding** ICD-10-CM → ICD-9-CM (backward) |
+| `pcs_gems_2018/gem_i9pcs.txt` | **binding** ICD-9-CM → ICD-10-PCS (forward) |
+| `pcs_gems_2018/gem_pcsi9.txt` | **binding** ICD-10-PCS → ICD-9-CM (backward) |
+
+Not read: the PDF guides. Backward rows from an ICD-10 code deleted since 2018 are
+skipped (9,840), as are forward rows to a deleted ICD-10-PCS code (1,029).
+
 ## RxNorm (with ATC)
 
 - **Publisher:** U.S. National Library of Medicine
@@ -345,8 +442,9 @@ Databank, Gold Standard, VANDF, DrugBank, CVX, FDA SPL, USP), `RXNATOMARCHIVE`
 - **Licence:** UMLS Metathesaurus Licence (free, UTS account). Each source keeps
   its own restriction level (licence Appendix 2): here SNOMEDCT_US 9 (SNOMED CT
   affiliate licence), ICD10 3, ICD10CM, ICF and ICF-CY 4 (WHO-derived), LNC,
-  RXNORM, ATC, ICD10PCS 0. Only codes and CUIs are used, no UMLS strings; the codes themselves
-  come from the releases above. Don't redistribute.
+  RXNORM, ATC, ICD10PCS, ICD9CM 0. Only codes and CUIs are used, plus the names of
+  the ICD-9-CM headers, which CMS does not publish; the other codes and names come
+  from the releases above. Don't redistribute.
 - **Download:** sign in to [UTS](https://uts.nlm.nih.gov/), then on
   [UMLS Knowledge Sources](https://www.nlm.nih.gov/research/umls/licensedcontent/umlsknowledgesources.html)
   take either
@@ -371,7 +469,7 @@ Files used:
 
 | File | Used for |
 | --- | --- |
-| `META/MRCONSO.RRF` | **binding** codes of SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS, ICD10, ICF, ICF-CY that share a CUI |
+| `META/MRCONSO.RRF` | **binding** codes of ICD9CM, SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS, ICD10, ICF, ICF-CY that share a CUI; the ICD-9-CM headers (`SAB=ICD9CM`, `TTY=HT`) for `icd9cm` |
 
 UMLS 2026AA carries its own versions: SNOMED CT US 2026-03-01, LOINC 2.82, RxNorm
 2026-03-02, ATC 2026-01-28, ICD-10-CM and ICD-10-PCS 2026, ICF and ICF-CY **2008**,
@@ -397,6 +495,9 @@ What links one vocabulary to another, and where it comes from:
 | ATC → SNOMED CT, LOINC | none official | through RxNorm; and UMLS |
 | Any pair of loaded vocabularies (ICD-10-CM ↔ WHO ICD-10, LOINC ↔ ICD, SNOMED CT ↔ ATC / ICD-10-PCS / ICF, ...) | UMLS shared CUIs, `umls` | yes — `clinical-graph bind umls`, only the pairs no official map has |
 | SNOMED CT → **ICD-10-CM** | NLM map, refset 6011000124106, `snomed_icd10cm` | yes — loaded by `clinical-graph bind` |
+| ICD-9-CM → SNOMED CT | NLM ICD-9-CM to SNOMED CT maps, `icd9cm_snomed` | yes — loaded by `clinical-graph bind` |
+| ICD-9-CM ↔ ICD-10-CM, ICD-10-PCS | CMS GEMs 2018, both directions, `icd9cm_gems` | yes — loaded by `clinical-graph bind` |
+| ICD-9-CM ↔ WHO ICD-10 | none official | UMLS; or through ICD-10-CM / SNOMED CT |
 | LOINC term → SNOMED CT concept | LOINC Extension, `sct2_Identifier`, `loinc_extension` | yes — loaded by `clinical-graph bind` |
 | ICF ↔ anything | none official (ICD-11 Chapter V is built from ICF, but ICD-11 isn't loaded) | UMLS only |
 
@@ -412,7 +513,9 @@ The SNOMED International map targets WHO ICD-10; ICD-10-CM comes from NLM's map.
   - UMLS Metathesaurus: loaded (`umls`), but only 94 PCS codes share a CUI with
     SNOMED CT or LOINC (mostly imaging), so it is no substitute for a map.
   - ICD-9-CM chain: CMS GEMs (PCS ↔ ICD-9-CM procedures, frozen since FY2018) plus
-    NLM's ICD-9-CM → SNOMED CT map; lossy.
+    NLM's ICD-9-CM → SNOMED CT procedure map; both loaded (`icd9cm_gems`,
+    `icd9cm_snomed`), so the two-step path PCS → ICD-9-CM → SNOMED CT is in the
+    graph. Lossy.
   - The PCS Body Part / Device / Substance keys (CMS code tables download), as raw
     material for matching PCS axis values to SNOMED CT body structures and devices.
   - OHDSI Athena has ICD-10-PCS as standard concepts, so almost no maps.
