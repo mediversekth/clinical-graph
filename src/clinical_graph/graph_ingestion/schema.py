@@ -13,6 +13,7 @@ LABELS: dict[Vocabulary, str] = {
     Vocabulary.ICD10CM: "ICD10CM",
     Vocabulary.ICD10PCS: "ICD10PCS",
     Vocabulary.ICD10: "ICD10",
+    Vocabulary.ICD9CM: "ICD9CM",
     Vocabulary.RXNORM: "RXNORM",
     Vocabulary.ATC: "ATC",
     Vocabulary.ICF: "ICF",

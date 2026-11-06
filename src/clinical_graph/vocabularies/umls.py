@@ -4,15 +4,16 @@ UMLS groups the codes of its source vocabularies into concepts (CUIs): codes in
 one CUI mean the same thing. This reader turns every pair of codes of two loaded
 vocabularies that share a CUI into a ``MAPS_TO`` edge, to fill the gaps the
 official maps leave (WHO ICD-10 <-> ICD-10-CM, SNOMED CT <-> ICD-10-PCS, LOINC
-<-> ICD-10-CM, ...).
+<-> ICD-10-CM, ICD-9-CM <-> WHO ICD-10, ...).
 
 * Concepts, relations: none; UMLS adds no nodes.
 * Mappings: from ``MRCONSO.RRF``, the current atoms (``SUPPRESS=N``) of
-  SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS, ICD10 (WHO), ICF and ICF-CY
-  (both ``Vocabulary.ICF``). For each CUI,
-  every pair of codes of two different vocabularies, ``equivalent``, keyed by
+  ICD9CM (codes and headers, ``PT`` / ``HT``), SNOMEDCT_US, LNC, RXNORM, ATC,
+  ICD10CM, ICD10PCS, ICD10 (WHO), ICF and ICF-CY (both ``Vocabulary.ICF``). For
+  each CUI, every pair of codes of two different vocabularies, ``equivalent``, keyed by
   the CUI. Each pair points one way, from the vocabulary earlier in
-  :data:`ORDER` (LOINC, RxNorm, SNOMED CT, ATC, ICD-10-CM, ICD-10-PCS, ICD-10, ICF),
+  :data:`ORDER` (ICD-9-CM, LOINC, RxNorm, SNOMED CT, ATC, ICD-10-CM, ICD-10-PCS,
+  ICD-10, ICF),
   following the official maps' directions. UMLS-made codes (LOINC ``MTHU...``)
   and the ICD-10-PCS axis codes (4-6 characters) are left out.
 
@@ -40,6 +41,7 @@ CONSO = "META/MRCONSO.RRF"
 UMLS_PROVENANCE = "UMLS Metathesaurus (shared CUI)"
 
 SOURCES = {
+    "ICD9CM": Vocabulary.ICD9CM,  # first: its edges point to the successors
     "LNC": Vocabulary.LOINC,
     "RXNORM": Vocabulary.RXNORM,
     "SNOMEDCT_US": Vocabulary.SNOMED,
@@ -56,6 +58,7 @@ ORDER = list(SOURCES.values())
 """Edges point from the earlier vocabulary to the later one."""
 
 _PCS_TTYS = {"PT", "HT"}  # codes and 3-character tables; not the axis codes (HX)
+_ICD9CM_TTYS = {"PT", "HT"}  # codes and headers; not the abbreviations (AB)
 
 
 def _keep(sab: str, tty: str, code: str) -> bool:
@@ -63,6 +66,8 @@ def _keep(sab: str, tty: str, code: str) -> bool:
         return not code.startswith("MTHU")
     if sab == "ICD10PCS":
         return tty in _PCS_TTYS
+    if sab == "ICD9CM":
+        return tty in _ICD9CM_TTYS
     return True
 
 

@@ -7,6 +7,9 @@ backend; building and exporting the graph is a separate step.
 """
 
 from clinical_graph.vocabularies.base import VocabularyReader
+from clinical_graph.vocabularies.icd9cm import Icd9CmReader
+from clinical_graph.vocabularies.icd9cm_gems import Icd9CmGemsReader
+from clinical_graph.vocabularies.icd9cm_snomed import Icd9CmSnomedMapReader
 from clinical_graph.vocabularies.icd10 import Icd10Reader
 from clinical_graph.vocabularies.icd10cm import Icd10CmReader
 from clinical_graph.vocabularies.icf import IcfReader
@@ -19,6 +22,9 @@ from clinical_graph.vocabularies.umls import UmlsReader
 
 __all__ = [
     "READERS",
+    "Icd9CmGemsReader",
+    "Icd9CmReader",
+    "Icd9CmSnomedMapReader",
     "Icd10Reader",
     "Icd10CmReader",
     "IcfReader",
@@ -39,7 +45,10 @@ READERS: dict[str, type[VocabularyReader]] = {
     "icd10": Icd10Reader,
     "rxnorm": RxNormReader,
     "icf": IcfReader,
+    "icd9cm": Icd9CmReader,
     "snomed_icd10cm": SnomedIcd10CmMapReader,
+    "icd9cm_snomed": Icd9CmSnomedMapReader,
+    "icd9cm_gems": Icd9CmGemsReader,
     "umls": UmlsReader,  # supplementary: keep last, bound after the other maps
 }
 """Reader class per ``sources.toml`` key. Readers without ``vocabularies`` (maps

@@ -31,6 +31,7 @@ SKIPPED_KINDS: dict[Vocabulary, frozenset[str]] = {
     Vocabulary.ICD10CM: frozenset({"chapter", "block"}),
     Vocabulary.ICD10PCS: frozenset({"table"}),
     Vocabulary.ICD10: frozenset({"chapter", "block"}),
+    Vocabulary.ICD9CM: frozenset({"classification", "chapter", "block"}),
     Vocabulary.LOINC: frozenset({"hierarchy", "group", "parentgroup"}),
     Vocabulary.ICF: frozenset({"section", "component", "qualifier_group", "qualifier"}),
 }

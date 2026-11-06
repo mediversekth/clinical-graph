@@ -7,12 +7,14 @@ they create.
 
 ```bash
 uv run clinical-graph ingest --dry-run          # read and count, no Neo4j
-uv run clinical-graph ingest                    # all: snomed loinc_extension loinc icd10cm icd10 rxnorm icf
+uv run clinical-graph ingest                    # all: snomed loinc_extension loinc icd10cm icd10 rxnorm icf icd9cm
 uv run clinical-graph ingest loinc icd10cm      # some of them
 uv run clinical-graph ingest snomed --replace   # delete the source's nodes first (after a release update)
 uv run clinical-graph bind --dry-run            # read and resolve the maps, no Neo4j
 uv run clinical-graph bind snomed [--replace]   # SNOMED CT -> ICD-10 (WHO) MAPS_TO edges
 uv run clinical-graph bind snomed_icd10cm       # SNOMED CT -> ICD-10-CM (NLM map)
+uv run clinical-graph bind icd9cm_snomed        # ICD-9-CM -> SNOMED CT (NLM maps)
+uv run clinical-graph bind icd9cm_gems          # ICD-9-CM <-> ICD-10-CM / ICD-10-PCS (CMS GEMs)
 uv run clinical-graph bind loinc                # LOINC part -> SNOMED CT, RxNorm
 uv run clinical-graph bind rxnorm               # RxNorm -> ATC, SNOMED CT
 uv run clinical-graph bind loinc_extension      # LOINC term -> SNOMED CT (LOINC Extension)
@@ -52,6 +54,7 @@ Every node: `:Concept` plus exactly one vocabulary label.
 | `ICD10CM` | ICD-10-CM FY2027 | 98,722 | `chapter`, `block`, `code` |
 | `ICD10PCS` | ICD-10-PCS FY2027 | 80,174 | `table`, `code` |
 | `ICD10` | WHO ICD-10 2019 | 16,751 | `chapter`, `block`, `code` |
+| `ICD9CM` | ICD-9-CM Version 32 (FY2015, final), diagnoses and procedures | 22,406 | `classification`, `chapter`, `block`, `code` |
 | `RXNORM` | RxNorm full release 20261102, with obsolete concepts | 230,470 (125k current) | `ingredient`, `clinical_drug`, `branded_drug`, ... (one per term type) |
 | `ATC` | WHO ATC, as in RxNorm (ATC 2026-01-28) | 7,000 | `anatomical_group`, `therapeutic_group`, `pharmacological_group`, `chemical_group`, `substance` |
 | `ICF` | WHO ICF, 2026-01 release | 1,665 | `section`, `component`, `chapter`, `block`, `category`, `qualifier_group`, `qualifier` |
@@ -66,7 +69,7 @@ and after `embed load` one vector index per label on `embedding` (see
 | Property | Description |
 | --- | --- |
 | `id` | `<vocabulary>:<key>`, unique; see below |
-| `vocabulary` | `snomed`, `loinc`, `icd10cm`, `icd10pcs`, `icd10`, `rxnorm`, `atc`, `icf` |
+| `vocabulary` | `snomed`, `loinc`, `icd10cm`, `icd10pcs`, `icd10`, `icd9cm`, `rxnorm`, `atc`, `icf` |
 | `code` | code as published (`44054006`, `4548-4`, `E11.9`, block range `E08-E13`) |
 | `name` | display name (see per vocabulary) |
 | `kind` | node type within the vocabulary |
@@ -82,6 +85,7 @@ and after `embed load` one vector index per label on `embedding` (see
 | `icd10cm:block:E08-E13`, `icd10cm:chapter:4` | ICD-10-CM block, chapter |
 | `icd10pcs:0016070`, `icd10pcs:table:001` | ICD-10-PCS code, table |
 | `icd10:E11.9`, `icd10:block:E10-E14`, `icd10:chapter:4` | WHO ICD-10 code, block, chapter |
+| `icd9cm:250.01`, `icd9cm:45.81`, `icd9cm:block:249-259.99`, `icd9cm:chapter:240-279.99`, `icd9cm:classification:00-99.99` | ICD-9-CM diagnosis, procedure, block, chapter, classification |
 | `rxnorm:6809`, `rxnorm:861007` | RxNorm concept (RXCUI): metformin; metformin hydrochloride 500 MG Oral Tablet |
 | `atc:A10BA02`, `atc:A10` | ATC code: metformin; drugs used in diabetes |
 | `icf:d4500`, `icf:block:b110-b139`, `icf:chapter:b1`, `icf:component:b` | ICF category (*Walking short distances*), block, chapter, component |
@@ -173,6 +177,27 @@ that WHO's text edition does not list. Code properties:
 
 WHO switches off the place and activity subdivisions of the external causes
 (`W19.0`), so those are not generated.
+
+### `ICD9CM`
+
+ICD-9-CM, the final release (Version 32, FY2015), both volumes in one label:
+diagnoses (`250.01`, `V45.81`, `E849.0`) and procedures (`45.81`); `axis` says
+which (`diagnosis` / `procedure`). Codes carry the published dot; once dotted
+they cannot collide (diagnoses have three characters before the dot, external
+causes four, procedures two).
+
+| Kind | Nodes | Example |
+| --- | --- | --- |
+| `classification` | 2 | `icd9cm:classification:001-999.99` *DISEASES AND INJURIES*, `icd9cm:classification:00-99.99` *PROCEDURES* |
+| `chapter` | 37 | `icd9cm:chapter:240-279.99` *ENDOCRINE, NUTRITIONAL AND METABOLIC DISEASES, AND IMMUNITY DISORDERS*; the V and E supplementary classifications, `icd9cm:chapter:V01-V91.99`, `icd9cm:chapter:E000-E999.9` |
+| `block` | 164 | `icd9cm:block:249-259.99` *DISEASES OF OTHER ENDOCRINE GLANDS*; blocks nest |
+| `code` | 22,203 | `icd9cm:250` *Diabetes mellitus* (header), `icd9cm:250.01` (billable) |
+
+The 18,449 billable codes come from CMS (`name` the full title, `short_name` the
+abbreviated one, `billable: true`); the 3,754 headers and the 203 ranges, which
+CMS does not publish, from the UMLS ICD9CM header atoms (`billable: false`;
+range names are upper case, as in the tabular). Codes also have `code_no_dot`
+(`25001`, as MIMIC-III and the GEMs store it). A range node's `code` is its range.
 
 ### `RXNORM`
 
@@ -324,6 +349,15 @@ a LOINC term.
 
 WHO ICD-10 has one kind of exclusion, unlike ICD-10-CM's `EXCLUDES1` / `EXCLUDES2`.
 
+### `ICD9CM`
+
+| Type | From → to | Properties |
+| --- | --- | --- |
+| `ISA` | code → longest prefix that is a code (`250.01` → `250.0` → `250`); category → narrowest range containing it; range → narrowest range containing it | |
+
+The roots are the two classifications and the V and E chapters. No tabular notes:
+the CMS files have none.
+
 ### `RXNORM`
 
 From `RXNREL` (`SAB=RXNORM`, concept level), one direction of each inverse pair,
@@ -387,7 +421,12 @@ map publishes it), `match`. UMLS edges also have `source_code` and `source_match
 | `LOINC part map to RxNorm (PartRelatedCodeMapping)` | `LOINC` → `RXNORM` | 988 |
 | `RxNorm: ATC codes of RxNorm concepts (SAB=ATC)` | `RXNORM` → `ATC` | 3,761 |
 | `RxNorm: SNOMED CT US atoms of RxNorm concepts (SAB=SNOMEDCT_US)` | `RXNORM` → `SNOMEDCT` | 18,520 |
-| `UMLS Metathesaurus (shared CUI)` | all pairs, see below | 38,764 |
+| `NLM ICD-9-CM to SNOMED CT map` | `ICD9CM` → `SNOMEDCT` | 49,968 |
+| `CMS GEM ICD-9-CM -> ICD-10-CM (2018)` | `ICD9CM` → `ICD10CM` | 24,438 |
+| `CMS GEM ICD-10-CM -> ICD-9-CM (2018)` | `ICD10CM` → `ICD9CM` | 80,502 |
+| `CMS GEM ICD-9-CM -> ICD-10-PCS (2018)` | `ICD9CM` → `ICD10PCS` | 72,354 |
+| `CMS GEM ICD-10-PCS -> ICD-9-CM (2018)` | `ICD10PCS` → `ICD9CM` | 91,514 |
+| `UMLS Metathesaurus (shared CUI)` | all pairs, see below | 51,469 |
 
 The official maps come first; UMLS only adds pairs none of them has. To use only
 reviewed maps: `WHERE m.provenance <> 'UMLS Metathesaurus (shared CUI)'`.
@@ -425,7 +464,8 @@ goes to the code the 7th character extends (`S72.001`; `M48.40X?` → `M48.40`),
 `match: ancestor`, equivalence `wider` and the published code in `target_code`.
 The 7-character codes are its `ISA` children.
 
-There are no `MAPS_TO` edges to `ICD10PCS`: no official map exists.
+No official map joins `ICD10PCS` to SNOMED CT; its only official links are the
+GEMs to ICD-9-CM procedures (below), which the NLM map joins to SNOMED CT.
 
 ### `LOINC` → `SNOMEDCT` (LOINC Extension)
 
@@ -484,16 +524,51 @@ product forms, `IN`/`PIN`/`MIN`: substances). 353 SNOMED CT codes are US-only dr
 not in the loaded release and are skipped. The release has 28k more SNOMED CT drug
 concepts in concepts without an RxNorm atom; they have no RxNorm counterpart.
 
+### `ICD9CM` → `SNOMEDCT`
+
+NLM's ICD-9-CM to SNOMED CT maps (source `icd9cm_snomed`, December 2025, on the
+SNOMED CT US Edition 2025-09), diagnoses and procedures: 49,968 edges (16 rows
+target US-only concepts and are skipped). Each ICD-9-CM code maps either to one
+SNOMED CT concept (`id` `1to1`, `equivalent`) or to several, each narrower
+(`id` `1tom`, `narrower`). NLM maps only the codes that cover most US use.
+
+| Property | Description |
+| --- | --- |
+| `one_to_one` | from the one-to-one file |
+| `is_current_icd` | the ICD-9-CM code is valid in the final release |
+| `ip_usage`, `op_usage` | NLM's usage statistics: share of inpatient / outpatient use, percent |
+| `is_nec` | the code is *not elsewhere classified* (diagnoses) |
+| `in_core` | the SNOMED CT target is in the CORE Problem List Subset (diagnoses) |
+
+### `ICD9CM` ↔ `ICD10CM`, `ICD10PCS` (GEMs)
+
+CMS General Equivalence Mappings, 2018 (the last edition; source `icd9cm_gems`),
+four maps each with its own `provenance`: forward (ICD-9-CM → ICD-10) and
+backward (ICD-10 → ICD-9-CM), for diagnoses (`ICD10CM`) and procedures
+(`ICD10PCS`). They are not inverses of each other; use the forward map to
+translate ICD-9-CM data, the backward one to find the ICD-9-CM codes behind an
+ICD-10 code. Rows flagged *no map* are left out.
+
+| Property | Description |
+| --- | --- |
+| `approximate` | not an identical meaning; `equivalence` is `equivalent` only for rows neither approximate nor combination, else `unspecified` |
+| `combination` | the source needs several targets together, one from each choice list of a scenario |
+| `scenario`, `choice_list` | on combination rows; `id` is `<scenario>.<choice_list>` (otherwise empty) |
+
+The ICD-10 codes are 2018 codes: 59 forward targets retired since go to their
+parent (`match: ancestor`), 1,029 forward rows to a deleted ICD-10-PCS code are
+skipped, as are 9,840 backward rows from a deleted ICD-10 code.
+
 ### UMLS (shared CUIs)
 
 From the UMLS Metathesaurus 2026AA (`MRCONSO.RRF`, source `umls`), `provenance`
 `UMLS Metathesaurus (shared CUI)`: two codes of two loaded vocabularies in the same
 UMLS concept (CUI) are synonyms, `equivalent`; `id` and `cui` are the CUI. Only
-current atoms (`SUPPRESS=N`) of SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS,
-ICD10, ICF and ICF-CY (both `ICF`) are used. Both codes are resolved against the graph (`source_code`,
+current atoms (`SUPPRESS=N`) of ICD9CM (codes and headers), SNOMEDCT_US, LNC,
+RXNORM, ATC, ICD10CM, ICD10PCS, ICD10, ICF and ICF-CY (both `ICF`) are used. Both codes are resolved against the graph (`source_code`,
 `source_match`, `target_code`, `match`: `exact` or `normalised`, never a broader
 code), and **only pairs that no official map links** are written (once, whatever
-the direction): 82k pairs resolve, 43k of them are linked already.
+the direction): 105k pairs resolve, 53k of them are linked already.
 
 | From → to | New edges | Examples |
 | --- | --- | --- |
@@ -501,6 +576,10 @@ the direction): 82k pairs resolve, 43k of them are linked already.
 | `LOINC` → `SNOMEDCT` | 9,004 | parts: *Blood* → Blood; *Calorie intake* → Energy intake |
 | `SNOMEDCT` → `ATC` | 6,748 | Ferrous fumarate → `B03AA02` |
 | `SNOMEDCT` → `ICD10CM` | 5,051 | Posterior scleritis → `H15.03` |
+| `ICD9CM` → `ICD10` | 4,918 | `001` Cholera → `A00`; `001-009.99` → block `A00-A09` |
+| `ICD9CM` → `ICD10CM` | 4,250 | the pairs the GEMs leave out |
+| `ICD9CM` → `SNOMEDCT` | 3,210 | codes NLM's map leaves out |
+| `ICD9CM` → `LOINC`, `ICF`, `ICD10PCS` | 313, 11, 3 | |
 | `LOINC` → `ATC` | 1,704 | *Phentermine* → `A08AA01` |
 | `SNOMEDCT` → `ICD10` | 1,445 | Malignant neoplasm of gum → `C03` |
 | `RXNORM` → `SNOMEDCT` | 1,152 | cinoxate → Cinoxate |
@@ -512,8 +591,10 @@ the direction): 82k pairs resolve, 43k of them are linked already.
 | `LOINC` → `ICF` | 313 | parts: *Adrenal gland* → `s5803` |
 | `ICD10CM` → `ICF`, `ICD10` → `ICF` | 19, 9 | `M54.9` Dorsalgia, unspecified → `b28013` Pain in back |
 
-Edges point from the earlier vocabulary of LOINC, RxNorm, SNOMED CT, ATC,
-ICD-10-CM, ICD-10-PCS, ICD-10, ICF, following the official maps. Blocks and chapters
+Edges point from the earlier vocabulary of ICD-9-CM, LOINC, RxNorm, SNOMED CT,
+ATC, ICD-10-CM, ICD-10-PCS, ICD-10, ICF, following the official maps (ICD-9-CM
+first, like the GEMs' forward maps and NLM's ICD-9-CM map). ICD-9-CM ranges match
+by their range (`249-259.99`). Blocks and chapters
 match by their range (`E08-E13`; WHO's `D55-D59.9`), PCS tables by their 3
 characters, ICF blocks, chapters and components by their derived code
 (`b110-b139`, `b1`, `b`). Not linked: LOINC answers (`LA`, not nodes), UMLS-made codes

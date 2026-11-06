@@ -27,6 +27,7 @@ class Vocabulary(StrEnum):
     LOINC = "loinc"
     ICD10CM = "icd10cm"
     ICD10PCS = "icd10pcs"
+    ICD9CM = "icd9cm"  # ICD-9-CM, diagnoses and procedures
     ICD10 = "icd10"  # WHO ICD-10: target of the SNOMED International map
     ICDO3 = "icdo3"
     RXNORM = "rxnorm"

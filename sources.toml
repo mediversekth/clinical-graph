@@ -322,7 +322,7 @@ release_dir = "umls/2026AA"
 
 [[sources.umls.files]]
 path = "META/MRCONSO.RRF"
-purpose = "Binding: codes of the loaded vocabularies that share a CUI (SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS, ICD10, ICF, ICF-CY)"
+purpose = "Binding: codes of the loaded vocabularies that share a CUI (ICD9CM, SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS, ICD10, ICF, ICF-CY); ICD-9-CM headers (ICD9CM, TTY=HT) for the icd9cm reader"
 
 # --------------------------------------------------------------------------------
 [sources.icf]
@@ -338,3 +338,89 @@ release_dir = "icf/2026-01"
 [[sources.icf.files]]
 path = "SimpleTabulation-ICF-en.txt"
 purpose = "ICF sections, components, chapters, blocks, categories and qualifiers with their parents (Foundation URIs)"
+
+# --------------------------------------------------------------------------------
+[sources.icd9cm]
+title = "ICD-9-CM Version 32 (FY2015, final release), full and abbreviated code titles"
+version = "32"
+publisher = "CMS / CDC NCHS"
+licence = "Public domain (US government)"
+homepage = "https://www.cms.gov/medicare/coding-billing/icd-10-codes/icd-9-cm-diagnosis-procedure-codes-abbreviated-and-full-code-titles"
+download = "https://www.cms.gov/medicare/coding-billing/icd-10-codes/icd-9-cm-diagnosis-procedure-codes-abbreviated-and-full-code-titles"
+archive = "ICD-9-CM-v32-master-descriptions.zip"
+release_dir = "icd9"
+# The categories, subcategories and ranges above the billable codes come from the
+# UMLS ICD9CM header atoms (sources.umls, META/MRCONSO.RRF), read if present.
+
+[[sources.icd9cm.files]]
+path = "ICD-9-CM-v32-master-descriptions/CMS32_DESC_LONG_DX.txt"
+purpose = "Billable diagnosis codes (volumes 1-2) with full titles (Latin-1)"
+
+[[sources.icd9cm.files]]
+path = "ICD-9-CM-v32-master-descriptions/CMS32_DESC_SHORT_DX.txt"
+purpose = "Billable diagnosis codes with abbreviated titles"
+
+[[sources.icd9cm.files]]
+path = "ICD-9-CM-v32-master-descriptions/CMS32_DESC_LONG_SG.txt"
+purpose = "Billable procedure codes (volume 3) with full titles"
+
+[[sources.icd9cm.files]]
+path = "ICD-9-CM-v32-master-descriptions/CMS32_DESC_SHORT_SG.txt"
+purpose = "Billable procedure codes with abbreviated titles"
+
+# --------------------------------------------------------------------------------
+[sources.icd9cm_snomed]
+title = "ICD-9-CM Diagnostic and Procedure Codes to SNOMED CT Maps (NLM), December 2025"
+version = "202512"
+publisher = "U.S. National Library of Medicine"
+licence = "UMLS Metathesaurus Licence + SNOMED CT Affiliate Licence (free, UTS account needed)"
+homepage = "https://www.nlm.nih.gov/research/umls/mapping_projects/icd9cm_to_snomedct.html"
+download = "https://www.nlm.nih.gov/research/umls/mapping_projects/icd9cm_to_snomedct.html"
+archive = "ICD9CM_SNOMED_MAP_diagnosis_202512.zip, ICD9CMV3_SNOMED_MAP_Procedure_202512.zip"
+release_dir = "icd9"
+# Built on the SNOMED CT US Edition of 2025-09; US-only targets match no node.
+
+[[sources.icd9cm_snomed.files]]
+path = "ICD9CM_SNOMED_MAP_diagnosis_202512/ICD9CM_SNOMED_MAP_1TO1_202512.txt"
+purpose = "Binding: ICD-9-CM diagnosis -> one SNOMED CT concept"
+
+[[sources.icd9cm_snomed.files]]
+path = "ICD9CM_SNOMED_MAP_diagnosis_202512/ICD9CM_SNOMED_MAP_1TOM_202512.txt"
+purpose = "Binding: ICD-9-CM diagnosis -> several (narrower) SNOMED CT concepts"
+
+[[sources.icd9cm_snomed.files]]
+path = "ICD9CMV3_SNOMED_MAP_Procedure_202512/ICD9CMV3_SNOMED_MAP_1T1_202512.txt"
+purpose = "Binding: ICD-9-CM procedure -> one SNOMED CT concept"
+
+[[sources.icd9cm_snomed.files]]
+path = "ICD9CMV3_SNOMED_MAP_Procedure_202512/ICD9CMV3_SNOMED_MAP_1TM_202512.txt"
+purpose = "Binding: ICD-9-CM procedure -> several (narrower) SNOMED CT concepts"
+
+# --------------------------------------------------------------------------------
+[sources.icd9cm_gems]
+title = "General Equivalence Mappings ICD-9-CM <-> ICD-10-CM / ICD-10-PCS (CMS), 2018"
+version = "2018"
+publisher = "CMS"
+licence = "Public domain (US government)"
+homepage = "https://www.cms.gov/medicare/coding-billing/icd-10-codes"
+download = "https://www.cms.gov/medicare/coding-billing/icd-10-codes"
+archive = "2018 diagnosis GEMs zip (unpacked as diagnosis_gems_2018/), 2018icd10pcsgeneralequivalencemappings.zip (unpacked as pcs_gems_2018/)"
+release_dir = "icd9"
+# FY2018 is the last GEM release; its ICD-10 codes are resolved against the
+# current ICD-10-CM / ICD-10-PCS release by bind.
+
+[[sources.icd9cm_gems.files]]
+path = "diagnosis_gems_2018/2018_I9gem.txt"
+purpose = "Binding: ICD-9-CM -> ICD-10-CM (forward diagnosis GEM)"
+
+[[sources.icd9cm_gems.files]]
+path = "diagnosis_gems_2018/2018_I10gem.txt"
+purpose = "Binding: ICD-10-CM -> ICD-9-CM (backward diagnosis GEM)"
+
+[[sources.icd9cm_gems.files]]
+path = "pcs_gems_2018/gem_i9pcs.txt"
+purpose = "Binding: ICD-9-CM -> ICD-10-PCS (forward procedure GEM)"
+
+[[sources.icd9cm_gems.files]]
+path = "pcs_gems_2018/gem_pcsi9.txt"
+purpose = "Binding: ICD-10-PCS -> ICD-9-CM (backward procedure GEM)"
