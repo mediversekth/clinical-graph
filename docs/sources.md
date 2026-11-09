@@ -1,7 +1,8 @@
 # Sources
 
 The graph is built from seven vocabulary releases (RxNorm also brings ATC), one
-SNOMED CT extension, three map releases and the UMLS Metathesaurus (links only). None of them is stored in this
+SNOMED CT extension, three map releases, MeSH (the disease trees), MED-RT
+(drug-disease associations) and the UMLS Metathesaurus (links only). None of them is stored in this
 repository: two need a (free) licence, and all are large. This page says what to
 download, where to put it, and how to check you have the same files.
 
@@ -23,6 +24,8 @@ used for the current build.
 | `icd9cm` | ICD-9-CM Version 32 (CMS), code titles | FY2015 (final) | Public domain | ~1.3 MB |
 | `icd9cm_snomed` | ICD-9-CM to SNOMED CT Maps (NLM), diagnoses + procedures | 2025-12 | UMLS + SNOMED CT licence | ~7.5 MB |
 | `icd9cm_gems` | General Equivalence Mappings ICD-9-CM ↔ ICD-10-CM/PCS (CMS) | 2018 (final) | Public domain | ~13 MB |
+| `mesh` | MeSH (NLM), descriptors + supplementary records, XML | 2026 | Free (NLM terms) | ~64 MB (gzipped, read as is) |
+| `medrt` | MED-RT (VA), XML | 2026.11.02 | Public domain | ~46 MB |
 
 ## Directory layout
 
@@ -53,6 +56,11 @@ data/raw/
 │       └── SimpleTabulation-ICF-en.txt
 ├── umls/
 │   └── 2026AA/META/MRCONSO.RRF                                 # assembled, see UMLS below
+├── mesh/
+│   └── 2026/{desc2026.gz,supp2026.gz}                          # as downloaded, not unpacked
+├── medrt/
+│   └── 2026.11.02/                                             # unzipped Core_MEDRT_XML.zip
+│       └── Core_MEDRT_2026.11.02_XML.xml
 ├── RxNorm_full_11022026/                                     # unzipped RxNorm_full_11022026.zip
 │   └── rrf/
 ├── SnomedCT_LOINCExtension_PRODUCTION_LO1010000_20261021T120000Z/  # unzipped as-is
@@ -435,6 +443,67 @@ Not read: the other drug sources in the release (Multum, Micromedex, First
 Databank, Gold Standard, VANDF, DrugBank, CVX, FDA SPL, USP), `RXNATOMARCHIVE`
 (retired atoms) and the AUI-level relationships.
 
+## MeSH (Medical Subject Headings)
+
+- **Publisher:** U.S. National Library of Medicine
+- **Release:** MeSH 2026 (production year 2026, files updated 2026-08-12). NLM
+  publishes the next year's MeSH in November-December.
+- **Licence:** free, under the [NLM terms and conditions](https://www.nlm.nih.gov/databases/download/terms_and_conditions_mesh.html)
+  (UMLS restriction level 0); no account.
+- **Download:**
+
+  ```bash
+  mkdir -p data/raw/mesh/2026 && cd data/raw/mesh/2026
+  for f in desc2026.gz supp2026.gz; do
+    curl -fLO https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/xmlmesh/$f
+  done
+  ```
+
+- **Load:** `uv run clinical-graph ingest mesh` (with MED-RT on disk, so its
+  records are included), then `bind medrt` and `bind umls`.
+
+Files used, read gzipped:
+
+| File | Used for |
+| --- | --- |
+| `desc2026.gz` | descriptors (31,110; 5,343 loaded): name, entry terms, tree numbers, scope note, concept UIs |
+| `supp2026.gz` | the supplementary concept records MED-RT names (34 of 324k), with their mapped headings |
+
+Only the Diseases (C) and Mental Disorders (F03) trees are loaded in full; from
+the other trees, only the records MED-RT names. Not read: qualifiers
+(`qual2026`), pharmacological actions, the other trees.
+
+## MED-RT (Medication Reference Terminology)
+
+- **Publisher:** U.S. Department of Veterans Affairs (VHA), distributed by NCI EVS;
+  the successor of NDF-RT. Also in UMLS (`SAB=MED-RT`), but there it has only
+  ~4,000 drug-disease relations against 30,000 in the release itself.
+- **Release:** `Core_MEDRT_XML.zip`, 2026.11.02 (monthly, first Monday), on RxNorm
+  2026-10-05 and MeSH 2026.
+- **Licence:** public domain (UMLS restriction level 0).
+- **Download:** no account needed:
+
+  ```bash
+  mkdir -p data/raw/medrt && cd data/raw/medrt
+  curl -fLO https://evs.nci.nih.gov/ftp1/MED-RT/Core_MEDRT_XML.zip
+  unzip -q Core_MEDRT_XML.zip -d 2026.11.02     # the folder is the release version
+  ```
+
+- **Load:** no nodes of its own: after `ingest rxnorm` and `ingest mesh`,
+  `uv run clinical-graph bind medrt` (the drug-disease edges).
+
+Files used:
+
+| File | Used for |
+| --- | --- |
+| `Core_MEDRT_2026.11.02_XML.xml` | the RxNorm → MeSH concept associations `may_treat`, `may_prevent`, `may_diagnose`, `CI_with`, `induces`; for `mesh`, which records to load beyond C and F03 |
+
+Not read: MED-RT's own concepts and their associations (mechanism of action,
+physiologic effect, established pharmacologic class, chemical structure,
+pharmacokinetics; `has_MoA`, `has_PE`, `has_TC`, `has_SC`, `CI_MoA`, ...), the
+associations of MED-RT drug concepts that have no RxNorm ingredient, and the
+other files of the zip (documentation, schema, NUI list, release notes).
+
 ## UMLS Metathesaurus
 
 - **Publisher:** U.S. National Library of Medicine
@@ -469,7 +538,7 @@ Files used:
 
 | File | Used for |
 | --- | --- |
-| `META/MRCONSO.RRF` | **binding** codes of ICD9CM, SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS, ICD10, ICF, ICF-CY that share a CUI; the ICD-9-CM headers (`SAB=ICD9CM`, `TTY=HT`) for `icd9cm` |
+| `META/MRCONSO.RRF` | **binding** codes of MSH (concept UIs), ICD9CM, SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS, ICD10, ICF, ICF-CY that share a CUI; the ICD-9-CM headers (`SAB=ICD9CM`, `TTY=HT`) for `icd9cm` |
 
 UMLS 2026AA carries its own versions: SNOMED CT US 2026-03-01, LOINC 2.82, RxNorm
 2026-03-02, ATC 2026-01-28, ICD-10-CM and ICD-10-PCS 2026, ICF and ICF-CY **2008**,
@@ -500,6 +569,8 @@ What links one vocabulary to another, and where it comes from:
 | ICD-9-CM ↔ WHO ICD-10 | none official | UMLS; or through ICD-10-CM / SNOMED CT |
 | LOINC term → SNOMED CT concept | LOINC Extension, `sct2_Identifier`, `loinc_extension` | yes — loaded by `clinical-graph bind` |
 | ICF ↔ anything | none official (ICD-11 Chapter V is built from ICF, but ICD-11 isn't loaded) | UMLS only |
+| RxNorm → MeSH diseases (`MAY_TREAT`, `CONTRAINDICATED_WITH`, ...) | MED-RT, `medrt` | yes — `clinical-graph bind medrt`; not bindings but associations |
+| MeSH → SNOMED CT, ICD-10-CM, ICD-10, ICD-9-CM | none official | UMLS (`bind umls`) |
 
 The SNOMED International map targets WHO ICD-10; ICD-10-CM comes from NLM's map.
 
@@ -523,8 +594,9 @@ The SNOMED International map targets WHO ICD-10; ICD-10-CM comes from NLM's map.
   SNOMED CT code; needs answer nodes first (not loaded).
 - **LOINC parts → ChEBI, NCBI, ...** in `PartRelatedCodeMapping.csv`: needs
   those vocabularies.
-- **MED-RT** (NLM, free): drug mechanism of action, indications and
-  contraindications linked to RxNorm (`MAY_TREAT` → conditions).
+- **MED-RT classes**: mechanism of action, physiologic effect and established
+  pharmacologic class of each RxNorm ingredient (in the `medrt` release, not
+  read yet).
 - **ATC DDDs**: only in WHO's paid ATC/DDD index.
 - **SNOMED CT US-extension concepts** (2,613 rows of the NLM map start from one):
   would need the US Edition.

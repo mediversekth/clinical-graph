@@ -424,3 +424,39 @@ purpose = "Binding: ICD-9-CM -> ICD-10-PCS (forward procedure GEM)"
 [[sources.icd9cm_gems.files]]
 path = "pcs_gems_2018/gem_pcsi9.txt"
 purpose = "Binding: ICD-10-PCS -> ICD-9-CM (backward procedure GEM)"
+
+# --------------------------------------------------------------------------------
+[sources.medrt]
+title = "MED-RT (Medication Reference Terminology), XML release"
+version = "2026.11.02"
+publisher = "U.S. Department of Veterans Affairs (VHA); distributed by NCI EVS"
+licence = "Public domain (US government; UMLS restriction level 0)"
+homepage = "https://evs.nci.nih.gov/ftp1/MED-RT/"
+download = "https://evs.nci.nih.gov/ftp1/MED-RT/Core_MEDRT_XML.zip"
+archive = "Core_MEDRT_XML.zip"
+release_dir = "medrt/2026.11.02"
+
+[[sources.medrt.files]]
+path = "Core_MEDRT_2026.11.02_XML.xml"
+purpose = "RxNorm -> MeSH concept drug-disease associations (may_treat, may_prevent, may_diagnose, CI_with, induces); which MeSH concepts the mesh source loads beyond C and F03"
+
+# --------------------------------------------------------------------------------
+[sources.mesh]
+title = "MeSH (Medical Subject Headings), 2026, XML"
+version = "2026"
+publisher = "U.S. National Library of Medicine"
+licence = "Free (NLM terms and conditions; UMLS restriction level 0)"
+homepage = "https://www.nlm.nih.gov/mesh/"
+download = "https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/xmlmesh/"
+archive = "desc2026.gz, supp2026.gz (read as downloaded, gzipped)"
+release_dir = "mesh/2026"
+# The disease trees (C, F03) in full, and the records MED-RT names from any tree
+# (sources.medrt, read if present).
+
+[[sources.mesh.files]]
+path = "desc2026.gz"
+purpose = "Descriptors: names, entry terms, tree numbers (hierarchy), scope notes, concept UIs"
+
+[[sources.mesh.files]]
+path = "supp2026.gz"
+purpose = "Supplementary concept records MED-RT names (rare diseases) and the descriptors they are mapped to"

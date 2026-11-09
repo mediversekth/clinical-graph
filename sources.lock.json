@@ -215,6 +215,28 @@
     },
     "version": "20261021"
   },
+  "medrt": {
+    "files": {
+      "Core_MEDRT_2026.11.02_XML.xml": {
+        "sha256": "68d34922ef23cb137dff27c7c962c1d8e0ebd08cc272f6634589fdd7791ec4b4",
+        "size": 45636129
+      }
+    },
+    "version": "2026.11.02"
+  },
+  "mesh": {
+    "files": {
+      "desc2026.gz": {
+        "sha256": "ccd4d0d33bebfd4c836a59e7dd0c635b1d4e20c4f5a6abc55e2eb0ba4c8716dd",
+        "size": 16812612
+      },
+      "supp2026.gz": {
+        "sha256": "5d487dbb55807724465065f5c0945c630290a0a6decee14618f5380c574d87ab",
+        "size": 47287269
+      }
+    },
+    "version": "2026"
+  },
   "rxnorm": {
     "files": {
       "rrf/RXNCONSO.RRF": {

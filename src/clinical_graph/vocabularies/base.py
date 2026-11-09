@@ -7,7 +7,14 @@ from functools import cached_property
 from pathlib import Path
 from typing import ClassVar
 
-from clinical_graph.model import Concept, Mapping, Relation, Vocabulary, concept_id
+from clinical_graph.model import (
+    Association,
+    Concept,
+    Mapping,
+    Relation,
+    Vocabulary,
+    concept_id,
+)
 from clinical_graph.sources.manifest import Source
 
 
@@ -22,8 +29,11 @@ class VocabularyReader(ABC):
     source_key: ClassVar[str]
     vocabularies: ClassVar[tuple[Vocabulary, ...]]
     provenances: ClassVar[tuple[str, ...]] = ()
-    """``provenance`` of the mappings :meth:`iter_mappings` yields; ``bind
-    --replace`` deletes only the ``MAPS_TO`` edges with these."""
+    """``provenance`` of the mappings :meth:`iter_mappings` and the associations
+    :meth:`iter_associations` yield; ``bind --replace`` deletes only the edges
+    with these."""
+    association_types: ClassVar[tuple[str, ...]] = ()
+    """Relationship types of the associations :meth:`iter_associations` yields."""
     extension: ClassVar[str | None] = None
     """Set by a reader of an extension to another reader's vocabulary (the SNOMED
     CT LOINC Extension): its nodes carry this as their ``extension`` property, and
@@ -105,3 +115,10 @@ class VocabularyReader(ABC):
     @abstractmethod
     def iter_mappings(self) -> Iterator[Mapping]:
         """Yield the bindings from this vocabulary to other vocabularies."""
+
+    def iter_associations(self) -> Iterator[Association]:
+        """Yield the edges to other vocabularies that are not bindings.
+
+        None by default; a reader that yields some sets :attr:`association_types`.
+        """
+        yield from ()

@@ -12,8 +12,8 @@ uv run ruff check . && uv run ruff format .
 uv run pyright                      # strict
 uv run clinical-graph sources verify
 uv run clinical-graph ingest --dry-run   # readers only, no Neo4j
-uv run clinical-graph ingest [snomed loinc_extension loinc icd10cm icd10 rxnorm icf icd9cm] [--replace]
-uv run clinical-graph bind [snomed snomed_icd10cm icd9cm_snomed icd9cm_gems loinc loinc_extension rxnorm umls] [--dry-run] [--replace]   # MAPS_TO, after ingest
+uv run clinical-graph ingest [snomed loinc_extension loinc icd10cm icd10 rxnorm icf icd9cm mesh] [--replace]
+uv run clinical-graph bind [snomed snomed_icd10cm icd9cm_snomed icd9cm_gems loinc loinc_extension rxnorm medrt umls] [--dry-run] [--replace]   # MAPS_TO + associations, after ingest
 uv run clinical-graph embed build [sources] [--overwrite]   # SapBERT -> data/processed/embeddings/sapbert/<source>/
 uv run clinical-graph embed load [sources] [--replace]      # node `embedding` + vector indexes, after ingest
 uv run clinical-graph embed search TEXT -v VOCABULARY [--graph]
@@ -38,10 +38,13 @@ uv run clinical-graph es search TEXT -v VOCABULARY [--kind K] [--fuzzy]
 - Neo4j: Community 2026.09 set up as in the README (one database, possibly shared
   with other projects such as mediverse). Every node
   here is `:Concept` plus a vocabulary label (`SNOMEDCT`, `LOINC`, `ICD10CM`,
-  `ICD10PCS`, `ICD10`, `ICD9CM`, `RXNORM`, `ATC`, `ICF`); never touch nodes without `:Concept`. Relations only join
+  `ICD10PCS`, `ICD10`, `ICD9CM`, `RXNORM`, `ATC`, `ICF`, `MESH`); never touch nodes without `:Concept`. Relations only join
   nodes with the same vocabulary label; the only edges across vocabularies are
-  `MAPS_TO`, written by `bind` from readers' `iter_mappings` after resolving each
-  target with the target reader's `match`. Schema: `docs/graph_schema.md` (keep it
+  `MAPS_TO` (same meaning), written by `bind` from readers' `iter_mappings` after
+  resolving each target with the target reader's `match`, and associations
+  (`Association`, different things: MED-RT's `MAY_TREAT`, ...), written by `bind`
+  from `iter_associations` with both ends resolved; the reader lists their types
+  in `association_types`. Schema: `docs/graph_schema.md` (keep it
   in sync).
 - SNOMED CT keeps its history: inactive concepts *and* inactive edges are loaded
   (`active: false`), so Cypher over `SNOMEDCT` edges must filter `r.active` for the
@@ -63,6 +66,15 @@ uv run clinical-graph es search TEXT -v VOCABULARY [--kind K] [--fuzzy]
   the headers and ranges come from the UMLS `ICD9CM` `HT` atoms (the `umls`
   source's MRCONSO, read through its manifest entry). Its maps are map-only
   sources: `icd9cm_snomed` (NLM) and `icd9cm_gems` (CMS GEMs, 2018, both directions).
+- MeSH (`mesh`, label `MESH`) is partial: descriptors in trees C and F03, plus
+  every descriptor or supplementary record MED-RT names (it reads the `medrt`
+  file through its manifest entry); ids are record UIs (`mesh:D003924`,
+  `mesh:C562385`), `ISA` from tree numbers and `HeadingMappedTo`. MeSH reaches
+  SNOMED CT and the ICDs only through UMLS.
+- MED-RT (`medrt`) has no nodes: only `RXNORM -> MESH` associations
+  (`MAY_TREAT`, `MAY_PREVENT`, `MAY_DIAGNOSE`, `CONTRAINDICATED_WITH`, `INDUCES`,
+  `provenance: "MED-RT"`), naming MeSH concept UIs (`M...`) that
+  `MeshReader.match` resolves to their record. Bind it after `ingest mesh`.
 - UMLS (`umls`) is a `supplementary` reader: shared-CUI pairs, both ends resolved,
   no `ancestor` matches, and only pairs no other `MAPS_TO` links; it stays last in
   `READERS` and is bound after the official maps.

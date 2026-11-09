@@ -1,7 +1,8 @@
 # Clinical Graph
 
 A graph of clinical vocabularies and their bindings. It covers SNOMED CT (with the
-LOINC Extension), LOINC, ICD-10-CM/PCS, WHO ICD-10, ICD-9-CM, RxNorm, ATC and WHO ICF, read directly
+LOINC Extension), LOINC, ICD-10-CM/PCS, WHO ICD-10, ICD-9-CM, RxNorm, ATC, WHO ICF and
+the MeSH disease trees, with MED-RT's drug indications and contraindications, read directly
 from their official releases, linked by the maps those releases publish and, for
 the pairs no official map links, by UMLS shared concepts (CUIs).
 
@@ -117,13 +118,15 @@ Each vocabulary is loaded as its own graph, then linked by `MAPS_TO` edges:
 SNOMED CT → WHO ICD-10, SNOMED CT → ICD-10-CM, ICD-9-CM → SNOMED CT, ICD-9-CM ↔
 ICD-10-CM/PCS (GEMs), LOINC term and part → SNOMED CT, LOINC part → RxNorm,
 RxNorm → ATC and SNOMED CT, and last UMLS shared CUIs for the pairs none of those
-links.
+links. MED-RT adds what drugs may treat, prevent or diagnose, or are
+contraindicated with: `RXNORM -[MAY_TREAT]-> MESH`, and MeSH reaches the ICDs
+and SNOMED CT through UMLS.
 
 ```bash
 uv run clinical-graph ingest --dry-run   # read and count only, no Neo4j
-uv run clinical-graph ingest             # SNOMED CT (+ LOINC Extension), LOINC, ICD-10-CM/PCS, ICD-10, RxNorm + ATC, ICF, ICD-9-CM
+uv run clinical-graph ingest             # SNOMED CT (+ LOINC Extension), LOINC, ICD-10-CM/PCS, ICD-10, RxNorm + ATC, ICF, ICD-9-CM, MeSH
 uv run clinical-graph bind --dry-run     # read and resolve the maps only, no Neo4j
-uv run clinical-graph bind               # cross-vocabulary MAPS_TO edges (UMLS last)
+uv run clinical-graph bind               # cross-vocabulary MAPS_TO edges and MED-RT associations (UMLS last)
 ```
 
 Both commands take source keys (`ingest snomed loinc`, `bind umls`) and
@@ -204,6 +207,8 @@ src/clinical_graph/
 │   ├── rxnorm.py            # RxNorm + ATC, maps to ATC and SNOMED CT
 │   ├── icf.py               # WHO ICF (simple tabulation)
 │   ├── icd9cm.py            # ICD-9-CM v32 (CMS), headers from UMLS
+│   ├── mesh.py              # MeSH: C and F03 trees, and every MED-RT target
+│   ├── medrt.py             # MED-RT: RxNorm -> MeSH associations (no nodes)
 │   ├── snomed_icd10cm.py    # NLM SNOMED CT -> ICD-10-CM map (map only)
 │   ├── icd9cm_snomed.py     # NLM ICD-9-CM -> SNOMED CT maps (map only)
 │   ├── icd9cm_gems.py       # CMS GEMs ICD-9-CM <-> ICD-10-CM/PCS (map only)

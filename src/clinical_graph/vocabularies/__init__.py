@@ -15,6 +15,8 @@ from clinical_graph.vocabularies.icd10cm import Icd10CmReader
 from clinical_graph.vocabularies.icf import IcfReader
 from clinical_graph.vocabularies.loinc import LoincReader
 from clinical_graph.vocabularies.loinc_extension import LoincExtensionReader
+from clinical_graph.vocabularies.medrt import MedRtReader
+from clinical_graph.vocabularies.mesh import MeshReader
 from clinical_graph.vocabularies.rxnorm import RxNormReader
 from clinical_graph.vocabularies.snomed import SnomedReader
 from clinical_graph.vocabularies.snomed_icd10cm import SnomedIcd10CmMapReader
@@ -30,6 +32,8 @@ __all__ = [
     "IcfReader",
     "LoincExtensionReader",
     "LoincReader",
+    "MedRtReader",
+    "MeshReader",
     "RxNormReader",
     "SnomedIcd10CmMapReader",
     "SnomedReader",
@@ -46,9 +50,11 @@ READERS: dict[str, type[VocabularyReader]] = {
     "rxnorm": RxNormReader,
     "icf": IcfReader,
     "icd9cm": Icd9CmReader,
+    "mesh": MeshReader,  # C, F03 and every MED-RT target
     "snomed_icd10cm": SnomedIcd10CmMapReader,
     "icd9cm_snomed": Icd9CmSnomedMapReader,
     "icd9cm_gems": Icd9CmGemsReader,
+    "medrt": MedRtReader,  # RxNorm -> MeSH associations (after mesh)
     "umls": UmlsReader,  # supplementary: keep last, bound after the other maps
 }
 """Reader class per ``sources.toml`` key. Readers without ``vocabularies`` (maps

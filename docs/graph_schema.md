@@ -2,12 +2,13 @@
 
 `clinical-graph ingest` loads each vocabulary as its own graph inside one Neo4j
 database; `clinical-graph bind` then links the graphs with `MAPS_TO` edges from
-the maps the releases publish. This page describes the nodes and relationships
-they create.
+the maps the releases publish, and with MED-RT's drug-disease edges
+(`MAY_TREAT`, ...; see [Associations](#associations-med-rt)). This page
+describes the nodes and relationships they create.
 
 ```bash
 uv run clinical-graph ingest --dry-run          # read and count, no Neo4j
-uv run clinical-graph ingest                    # all: snomed loinc_extension loinc icd10cm icd10 rxnorm icf icd9cm
+uv run clinical-graph ingest                    # all: snomed loinc_extension loinc icd10cm icd10 rxnorm icf icd9cm mesh
 uv run clinical-graph ingest loinc icd10cm      # some of them
 uv run clinical-graph ingest snomed --replace   # delete the source's nodes first (after a release update)
 uv run clinical-graph bind --dry-run            # read and resolve the maps, no Neo4j
@@ -18,6 +19,7 @@ uv run clinical-graph bind icd9cm_gems          # ICD-9-CM <-> ICD-10-CM / ICD-1
 uv run clinical-graph bind loinc                # LOINC part -> SNOMED CT, RxNorm
 uv run clinical-graph bind rxnorm               # RxNorm -> ATC, SNOMED CT
 uv run clinical-graph bind loinc_extension      # LOINC term -> SNOMED CT (LOINC Extension)
+uv run clinical-graph bind medrt                # RxNorm -> MeSH: MAY_TREAT, CONTRAINDICATED_WITH, ...
 uv run clinical-graph bind umls                 # UMLS shared CUIs: the links still missing (last)
 uv run clinical-graph embed build               # SapBERT embeddings to data/processed (see Embeddings)
 uv run clinical-graph embed load                # node `embedding` + one vector index per label
@@ -58,6 +60,7 @@ Every node: `:Concept` plus exactly one vocabulary label.
 | `RXNORM` | RxNorm full release 20261102, with obsolete concepts | 230,470 (125k current) | `ingredient`, `clinical_drug`, `branded_drug`, ... (one per term type) |
 | `ATC` | WHO ATC, as in RxNorm (ATC 2026-01-28) | 7,000 | `anatomical_group`, `therapeutic_group`, `pharmacological_group`, `chemical_group`, `substance` |
 | `ICF` | WHO ICF, 2026-01 release | 1,665 | `section`, `component`, `chapter`, `block`, `category`, `qualifier_group`, `qualifier` |
+| `MESH` | MeSH 2026: the Diseases (C) and Mental Disorders (F03) trees, and every record MED-RT links a drug to | 5,377 | `descriptor`, `supplementary` |
 
 Constraint and indexes: `concept_id` (unique `Concept.id`), range indexes on
 `Concept.code` and `Concept.kind`, full-text index `concept_name` on `Concept.name`,
@@ -69,7 +72,7 @@ and after `embed load` one vector index per label on `embedding` (see
 | Property | Description |
 | --- | --- |
 | `id` | `<vocabulary>:<key>`, unique; see below |
-| `vocabulary` | `snomed`, `loinc`, `icd10cm`, `icd10pcs`, `icd10`, `icd9cm`, `rxnorm`, `atc`, `icf` |
+| `vocabulary` | `snomed`, `loinc`, `icd10cm`, `icd10pcs`, `icd10`, `icd9cm`, `rxnorm`, `atc`, `icf`, `mesh` |
 | `code` | code as published (`44054006`, `4548-4`, `E11.9`, block range `E08-E13`) |
 | `name` | display name (see per vocabulary) |
 | `kind` | node type within the vocabulary |
@@ -89,6 +92,7 @@ and after `embed load` one vector index per label on `embedding` (see
 | `rxnorm:6809`, `rxnorm:861007` | RxNorm concept (RXCUI): metformin; metformin hydrochloride 500 MG Oral Tablet |
 | `atc:A10BA02`, `atc:A10` | ATC code: metformin; drugs used in diabetes |
 | `icf:d4500`, `icf:block:b110-b139`, `icf:chapter:b1`, `icf:component:b` | ICF category (*Walking short distances*), block, chapter, component |
+| `mesh:D003924`, `mesh:C562385` | MeSH descriptor (*Diabetes Mellitus, Type 2*), supplementary concept record (*Iron-Refractory Iron Deficiency Anemia*) |
 
 ### `SNOMEDCT`
 
@@ -273,11 +277,31 @@ Qualifier groups are keyed by their WHO entity number. Properties:
 
 No definitions, inclusions or exclusions (not in the tabulation; ICD API only).
 
+### `MESH`
+
+Part of MeSH 2026 (source `mesh`), the end of MED-RT's drug-disease edges (see
+[Associations](#associations-med-rt)); the rest of MeSH (anatomy, organisms,
+chemicals, techniques, ...) is better covered by the other vocabularies:
+
+| `kind` | Nodes | What |
+| --- | ---: | --- |
+| `descriptor` | 5,343 | every descriptor in C (Diseases) or F03 (Mental Disorders), 5,194, and the 149 others MED-RT names (*Pregnancy*, *Menopause*, *Smoking*, *Renal Dialysis*, *Ebolavirus*, ...) |
+| `supplementary` | 34 | supplementary concept records MED-RT names: rare diseases (*Iron-Refractory Iron Deficiency Anemia*, `C562385`) |
+
+`code` is the record UI (`D...`, `C...`), `name` its MeSH heading, `synonyms` its
+entry terms (not the permuted ones). Properties: `tree_numbers` (descriptors:
+`C18.452.394.750.149`, `C19.246.300`; a descriptor can sit in several places) and
+`scope_note`. MED-RT names MeSH *concepts* (`M0006155`), of which a record has one
+preferred and possibly narrower ones; `bind` resolves each to its record. UMLS
+binds the records to SNOMED CT and the ICDs (`MAPS_TO`, see
+[UMLS](#umls-shared-cuis)).
+
 ## Relationships
 
 Within a vocabulary, relationships only join two nodes with the same vocabulary
 label; between vocabularies there are only `MAPS_TO` edges (see
-[Bindings](#bindings-maps_to)). Types are UPPER_SNAKE_CASE, and `ISA` is the
+[Bindings](#bindings-maps_to)) and MED-RT's drug-disease edges (see
+[Associations](#associations-med-rt)). Types are UPPER_SNAKE_CASE, and `ISA` is the
 hierarchy (child → parent) in every vocabulary.
 
 ### `SNOMEDCT`
@@ -393,10 +417,20 @@ drug model.
 | --- | --- |
 | `ISA` | each node → its parent in the tabulation (`b1100` → `b110` → `block:b110-b139` → `chapter:b1` → `component:b` → `section:category`; `qi0` → its qualifier group → `section:qualifier`) |
 
+### `MESH`
+
+`ISA` (child → parent) from the tree numbers: `C18.452.394.750.149` *Diabetes
+Mellitus, Type 2* → `C18.452.394.750` *Diabetes Mellitus*; a descriptor in
+several trees has several parents. 8,162 edges, between loaded descriptors only
+(the 149 descriptors outside C and F03 mostly have no parent loaded). A
+supplementary record's `ISA` goes to the descriptors it is mapped to
+(`HeadingMappedTo`), with `heading_mapped_to: true` (46 edges).
+
 ## Bindings (`MAPS_TO`)
 
 `clinical-graph bind` writes each map row as a `MAPS_TO` edge from a concept of
-one vocabulary to a concept of another; nothing else crosses vocabularies.
+one vocabulary to a concept of another; apart from them, only the MED-RT
+[associations](#associations-med-rt) cross vocabularies.
 Before writing, each target is checked against the target graph: `match` is
 `exact`, `normalised` (upper-cased, or the `X` placeholder removed: `M45.X2` →
 `M45.2`) or `ancestor` (the code is not in the target release, so the edge goes
@@ -564,8 +598,9 @@ skipped, as are 9,840 backward rows from a deleted ICD-10 code.
 From the UMLS Metathesaurus 2026AA (`MRCONSO.RRF`, source `umls`), `provenance`
 `UMLS Metathesaurus (shared CUI)`: two codes of two loaded vocabularies in the same
 UMLS concept (CUI) are synonyms, `equivalent`; `id` and `cui` are the CUI. Only
-current atoms (`SUPPRESS=N`) of ICD9CM (codes and headers), SNOMEDCT_US, LNC,
-RXNORM, ATC, ICD10CM, ICD10PCS, ICD10, ICF and ICF-CY (both `ICF`) are used. Both codes are resolved against the graph (`source_code`,
+current atoms (`SUPPRESS=N`) of MSH (descriptors and supplementary records), ICD9CM (codes and
+headers), SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS, ICD10, ICF and
+ICF-CY (both `ICF`) are used. Both codes are resolved against the graph (`source_code`,
 `source_match`, `target_code`, `match`: `exact` or `normalised`, never a broader
 code), and **only pairs that no official map links** are written (once, whatever
 the direction): 105k pairs resolve, 53k of them are linked already.
@@ -590,10 +625,14 @@ the direction): 105k pairs resolve, 53k of them are linked already.
 | `SNOMEDCT` → `ICF` | 354 | Adrenal structure → `s5803` Adrenal gland; Kingdom Animalia → `e2201` Animals |
 | `LOINC` → `ICF` | 313 | parts: *Adrenal gland* → `s5803` |
 | `ICD10CM` → `ICF`, `ICD10` → `ICF` | 19, 9 | `M54.9` Dorsalgia, unspecified → `b28013` Pain in back |
+| `MESH` → `SNOMEDCT` | 8,017 | *Diabetes Mellitus, Type 2* → Diabetes mellitus type 2 |
+| `MESH` → `ICD10CM`, `ICD9CM`, `ICD10` | 3,718, 2,095, 2,038 | *Diabetes Mellitus, Type 2* → `E11` |
+| `MESH` → `LOINC`, `RXNORM`, `ATC`, `ICF` | 475, 29, 18, 13 | LOINC parts naming a disease |
 
-Edges point from the earlier vocabulary of ICD-9-CM, LOINC, RxNorm, SNOMED CT,
-ATC, ICD-10-CM, ICD-10-PCS, ICD-10, ICF, following the official maps (ICD-9-CM
-first, like the GEMs' forward maps and NLM's ICD-9-CM map). ICD-9-CM ranges match
+Edges point from the earlier vocabulary of MeSH, ICD-9-CM, LOINC, RxNorm,
+SNOMED CT, ATC, ICD-10-CM, ICD-10-PCS, ICD-10, ICF, following the official maps
+(ICD-9-CM first, like the GEMs' forward maps and NLM's ICD-9-CM map; MeSH before
+it, so a drug's diseases reach every other vocabulary forwards). ICD-9-CM ranges match
 by their range (`249-259.99`). Blocks and chapters
 match by their range (`E08-E13`; WHO's `D55-D59.9`), PCS tables by their 3
 characters, ICF blocks, chapters and components by their derived code
@@ -612,13 +651,71 @@ barely share CUIs, and no official map to ICF exists.
 After re-binding an official map, run `bind umls --replace` so UMLS fills only
 what is still missing.
 
+## Associations (MED-RT)
+
+MED-RT (Medication Reference Terminology, VA; source `medrt`) states what an
+RxNorm ingredient may treat, prevent or diagnose, what it is contraindicated
+with, and what it may induce, as associations to MeSH concepts. `clinical-graph
+bind medrt` writes each as an edge from the `RXNORM` ingredient to the `MESH`
+record that holds the concept (`ingest mesh` first). They are not bindings (a
+drug is not its disease), so each has its own type rather than `MAPS_TO`:
+
+| Type | MED-RT | Edges |
+| --- | --- | ---: |
+| `MAY_TREAT` | `may_treat` | 15,381 |
+| `CONTRAINDICATED_WITH` | `CI_with` | 11,469 |
+| `MAY_PREVENT` | `may_prevent` | 2,663 |
+| `INDUCES` | `induces` | 169 |
+| `MAY_DIAGNOSE` | `may_diagnose` | 154 |
+
+Properties: `provenance` (`MED-RT`, the edge's identity with its type and ends),
+`medrt_name`, `authority` (a list: who asserts it, `MEDRT` for MED-RT / legacy
+NDF-RT experts, `FMTSME` for the FDA SPL subject-matter experts), `source_code`
+/ `source_match` and `target_code` / `target_match` (codes as published and how
+they matched, as for `MAPS_TO`; a retired RXCUI that RxNorm merged into another
+is `remapped`; a MeSH concept that is not its record's preferred one is
+`entry_concept`, 842 associations). Associations to two concepts of one record
+become one edge, which keeps the last's `target_code`. Skipped: 136 associations
+naming RXCUIs retired from RxNorm without a successor (penicillin `70618`, BCG
+vaccine `1344`, ...) and 5 naming MeSH concepts that MeSH 2026 no longer has
+(*concomitant disease*, *radiotherapy*); 193 from MED-RT's own drug concepts (no
+RxNorm ingredient) are not read.
+`bind medrt --replace` deletes the edges of these types with `provenance`
+`MED-RT`.
+
+The `MESH` end reaches the ICDs through UMLS `MAPS_TO`: of the `MAY_TREAT` edges,
+72% point to a MeSH record with a direct `ICD10CM` link, 93% with one through
+`SNOMEDCT` as well (`MESH` → `SNOMEDCT` → `ICD10CM`, the NLM map), and 98% if a
+MeSH ancestor's link counts too (`MESH` -`ISA*`-> `MESH` → `ICD10CM`).
+
+```cypher
+// What metformin may treat, as ICD-10-CM codes
+MATCH (:RXNORM {code: '6809'})-[:MAY_TREAT]->(m:MESH)-[:MAPS_TO]->(i:ICD10CM)
+RETURN m.name, i.code, i.name;
+
+// Drugs for an ICD-10-CM code, through MeSH directly or through SNOMED CT
+MATCH (i:ICD10CM {code: 'E11'})
+CALL (i) {
+  MATCH (m:MESH)-[:MAPS_TO]->(i) RETURN m
+  UNION
+  MATCH (m:MESH)-[:MAPS_TO]->(:SNOMEDCT)-[:MAPS_TO]->(i) RETURN m
+}
+MATCH (d:RXNORM)-[:MAY_TREAT]->(m)
+RETURN DISTINCT d.code, d.name ORDER BY d.name;
+
+// Drugs for any kind of diabetes, through the MeSH hierarchy (148)
+MATCH (d:RXNORM)-[:MAY_TREAT]->(:MESH)-[:ISA*0..]->(:MESH {code: 'D003920'})
+RETURN DISTINCT d.name ORDER BY d.name;
+```
+
 ## Embeddings
 
 `clinical-graph embed build` embeds every current concept with SapBERT
 (`cambridgeltl/SapBERT-from-PubMedBERT-fulltext`, `[CLS]` pooling,
 L2-normalised, 768-d). Inactive, deprecated and obsolete concepts are left out,
 as are the grouping nodes: ICD-10-CM / ICD-10 `chapter` and `block`, ICD-10-PCS
-`table`, LOINC `hierarchy`, `group` and `parentgroup`, and ICF `section`,
+`table`, ICD-9-CM `classification`, `chapter` and `block`, LOINC `hierarchy`,
+`group` and `parentgroup`, and ICF `section`,
 `component`, `qualifier_group` and `qualifier`. One model is used for every
 vocabulary, so scores compare across vocabularies.
 
@@ -636,8 +733,10 @@ ICD-10-PCS share `icd10cm`, RxNorm and ATC share `rxnorm`):
 | `ICD10` (WHO) | `icd10` | 16,455 | 36,248 | 16,751 | `chapter`, `block` |
 | `RXNORM` | `rxnorm` | 125,244 | 180,946 (with ATC) | 230,470 | obsolete concepts |
 | `ATC` | `rxnorm` | 7,000 | | 7,000 | nothing |
+| `ICD9CM` | `icd9cm` | 22,203 | 22,203 | 22,406 | `classification`, `chapter`, `block` |
 | `ICF` | `icf` | 1,610 | 1,610 | 1,665 | `section`, `component`, `qualifier_group`, `qualifier` |
-| **Total** | | **933,114** | **1,844,566** | **1,246,853** | |
+| `MESH` | `mesh` | 5,377 | 26,235 | 5,377 | nothing |
+| **Total** | | **960,694** | **1,893,004** | **1,274,636** | |
 
 `embed load` found a node for every embedded concept. UMLS has no embeddings:
 it is not a vocabulary of the graph, only a source of `MAPS_TO` edges. To embed
@@ -672,7 +771,9 @@ vector index per label, with `kind` as a filter property:
 | `concept_embedding_icd10cm`, `concept_embedding_icd10pcs` | `ICD10CM`, `ICD10PCS` |
 | `concept_embedding_icd10` | `ICD10` |
 | `concept_embedding_rxnorm`, `concept_embedding_atc` | `RXNORM`, `ATC` |
+| `concept_embedding_icd9cm` | `ICD9CM` |
 | `concept_embedding_icf` | `ICF` |
+| `concept_embedding_mesh` | `MESH` |
 
 With one index per label, a large vocabulary does not push a small one's hits
 out of the top k. Community Edition cannot store the `VECTOR` type, so the

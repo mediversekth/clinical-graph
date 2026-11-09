@@ -1,11 +1,13 @@
 """Vocabulary-neutral graph model.
 
-Every vocabulary reader produces the same three record types:
+Every vocabulary reader produces the same record types:
 
 * :class:`Concept` - a node: one code of one vocabulary.
 * :class:`Relation` - an edge *inside* a vocabulary (hierarchy, attributes,
   replacements, tabular notes).
-* :class:`Mapping` - an edge *between* vocabularies: a binding.
+* :class:`Mapping` - an edge *between* vocabularies: a binding (same meaning).
+* :class:`Association` - an edge *between* vocabularies that is not a binding:
+  a fact about two different things (a drug that may treat a disease).
 
 Concepts are identified by ``<vocabulary>:<key>``. The key is the code exactly as
 the source publishes it (``icd10cm:E11.9``, not ``icd10cm:E119``), prefixed with
@@ -34,6 +36,7 @@ class Vocabulary(StrEnum):
     ATC = "atc"  # WHO ATC classification, from the RxNorm release
     CHEBI = "chebi"
     ICF = "icf"  # WHO ICF (functioning, disability and health)
+    MESH = "mesh"  # MeSH concepts (M...), the diseases MED-RT refers to
 
 
 class MappingEquivalence(StrEnum):
@@ -133,6 +136,25 @@ class Mapping:
     equivalence: MappingEquivalence
     provenance: str
     key: str | None = None
+    properties: dict[str, PropertyValue] = field(
+        default_factory=dict[str, PropertyValue], hash=False
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class Association:
+    """A directed edge between concepts of two vocabularies that is not a binding.
+
+    The two ends are different things (a drug and a disease), so it is no
+    ``MAPS_TO``: ``type`` is an UPPER_SNAKE_CASE relationship name (``MAY_TREAT``).
+    Both ends hold the codes as the source publishes them; ``bind`` resolves them
+    like map targets. ``provenance`` names the source, as for :class:`Mapping`.
+    """
+
+    source: str
+    type: str
+    target: str
+    provenance: str
     properties: dict[str, PropertyValue] = field(
         default_factory=dict[str, PropertyValue], hash=False
     )

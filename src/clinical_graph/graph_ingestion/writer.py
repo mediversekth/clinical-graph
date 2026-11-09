@@ -7,8 +7,11 @@ Nodes are MERGEd on ``Concept.id``; relationships on their endpoints, type and
 the *same* vocabulary label, so no relation can join two vocabulary graphs.
 Bindings between vocabularies go through :meth:`GraphWriter.write_mappings`
 instead, as ``MAPS_TO`` edges MERGEd on ``provenance`` and ``id`` (the mapping's
-key), and only between *different* vocabulary labels. Either way, records whose
-endpoints do not exist are skipped by the ``MATCH`` (and counted as skipped).
+key), and only between *different* vocabulary labels;
+:meth:`GraphWriter.write_associations` likewise writes the other edges between
+vocabularies (MED-RT's ``MAY_TREAT``, ...), MERGEd on ``provenance``. Either way,
+records whose endpoints do not exist are skipped by the ``MATCH`` (and counted
+as skipped).
 """
 
 import logging
@@ -21,7 +24,14 @@ from typing import Any, LiteralString, cast
 from neo4j import Driver, ManagedTransaction
 
 from clinical_graph.graph_ingestion.schema import CONCEPT_LABEL, LABELS
-from clinical_graph.model import Concept, Mapping, Relation, Vocabulary, vocabulary_of
+from clinical_graph.model import (
+    Association,
+    Concept,
+    Mapping,
+    Relation,
+    Vocabulary,
+    vocabulary_of,
+)
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +42,17 @@ type Row = dict[str, Any]
 
 MAPS_TO = "MAPS_TO"
 """Relationship type of every cross-vocabulary binding."""
+
+
+def check_association_type(rel_type: str) -> str:
+    """Return an association's relationship type if valid (not ``MAPS_TO``).
+
+    Raises:
+        ValueError: If it is not UPPER_SNAKE_CASE, or is ``MAPS_TO``.
+    """
+    if not _REL_TYPE.match(rel_type) or rel_type == MAPS_TO:
+        raise ValueError(f"invalid association type {rel_type!r}")
+    return rel_type
 
 
 def _label(vocabulary: Vocabulary) -> str:
@@ -218,5 +239,57 @@ class GraphWriter:
         )
         written = self._run(query, buffer)
         self.counts.edges[f"{a_label}-{MAPS_TO}->{b_label}"] += written
+        self.counts.skipped_edges += len(buffer) - written
+        buffer.clear()
+
+    def write_associations(self, associations: Iterable[Association]) -> None:
+        """MERGE association edges between concepts of two different vocabularies.
+
+        Raises:
+            ValueError: If an association joins two concepts of the same
+                vocabulary, or its type is not a valid relationship type.
+        """
+        buffers: defaultdict[tuple[Vocabulary, str, Vocabulary], list[Row]] = (
+            defaultdict(list)
+        )
+        for a in associations:
+            group = (vocabulary_of(a.source), a.type, vocabulary_of(a.target))
+            if group[0] is group[2]:
+                raise ValueError(f"association within one vocabulary: {a}")
+            buffer = buffers[group]
+            buffer.append(
+                {
+                    "source": a.source,
+                    "target": a.target,
+                    "provenance": a.provenance,
+                    "props": a.properties,
+                }
+            )
+            if len(buffer) >= self.batch_size:
+                self._flush_associations(*group, buffer)
+        for group, buffer in buffers.items():
+            self._flush_associations(*group, buffer)
+
+    def _flush_associations(
+        self,
+        source: Vocabulary,
+        rel_type: str,
+        target: Vocabulary,
+        buffer: list[Row],
+    ) -> None:
+        if not buffer:
+            return
+        check_association_type(rel_type)
+        a_label, b_label = _label(source), _label(target)
+        query = (
+            f"UNWIND $rows AS row "
+            f"MATCH (a:{CONCEPT_LABEL} {{id: row.source}}) WHERE a:{a_label} "
+            f"MATCH (b:{CONCEPT_LABEL} {{id: row.target}}) WHERE b:{b_label} "
+            f"MERGE (a)-[r:{rel_type} {{provenance: row.provenance}}]->(b) "
+            f"SET r += row.props "
+            f"RETURN count(r) AS n"
+        )
+        written = self._run(query, buffer)
+        self.counts.edges[f"{a_label}-{rel_type}->{b_label}"] += written
         self.counts.skipped_edges += len(buffer) - written
         buffer.clear()

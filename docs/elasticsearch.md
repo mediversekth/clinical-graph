@@ -35,8 +35,10 @@ alias, never the physical index:
 | `clinical_graph_icd10` | `icd10` | 36,248 | 16,455 |
 | `clinical_graph_rxnorm` | `rxnorm` | 173,290 | 125,244 |
 | `clinical_graph_atc` | `rxnorm` | 7,656 | 7,000 |
+| `clinical_graph_icd9cm` | `icd9cm` | 22,203 | 22,203 |
 | `clinical_graph_icf` | `icf` | 1,610 | 1,610 |
-| **Total** | 7 indexes, ~300 MB | **1,844,566** | **933,114** |
+| `clinical_graph_mesh` | `mesh` | 26,235 | 5,377 |
+| **Total** | 9 indexes, ~300 MB | **1,893,004** | **960,694** |
 
 Several aliases can be searched together: `index="clinical_graph_icd10cm,clinical_graph_icd10pcs"`.
 

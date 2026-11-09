@@ -159,7 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
         "source",
         nargs="*",
         help="sources.toml keys (default: all): "
-        "snomed loinc_extension loinc icd10cm icd10 rxnorm icf icd9cm",
+        "snomed loinc_extension loinc icd10cm icd10 rxnorm icf icd9cm mesh",
     )
     ing.add_argument(
         "--batch-size", type=int, default=10_000, help="rows per transaction"
@@ -176,14 +176,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     bnd = sub.add_parser(
         "bind",
-        help="write cross-vocabulary mappings as MAPS_TO edges (after ingest)",
+        help="write cross-vocabulary mappings (MAPS_TO) and associations (MED-RT "
+        "MAY_TREAT, ...) after ingest",
     )
     bnd.add_argument(
         "source",
         nargs="*",
         help="sources.toml keys whose maps to write (default: all): "
         "snomed snomed_icd10cm icd9cm_snomed icd9cm_gems loinc loinc_extension rxnorm "
-        "umls",
+        "medrt umls",
     )
     bnd.add_argument(
         "--batch-size", type=int, default=10_000, help="rows per transaction"
@@ -203,7 +204,7 @@ def build_parser() -> argparse.ArgumentParser:
     esub = emb.add_subparsers(dest="action", required=True)
     keys_help = (
         "sources.toml keys (default: all): "
-        "snomed loinc_extension loinc icd10cm icd10 rxnorm icf icd9cm"
+        "snomed loinc_extension loinc icd10cm icd10 rxnorm icf icd9cm mesh"
     )
     ebuild = esub.add_parser(
         "build", help="embed the concepts' texts and save them under data/processed"
@@ -238,7 +239,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--vocabulary",
         "-v",
         required=True,
-        help="snomed loinc icd10cm icd10pcs icd10 icd9cm rxnorm atc icf",
+        help="snomed loinc icd10cm icd10pcs icd10 icd9cm rxnorm atc icf mesh",
     )
     esearch.add_argument("--top-k", "-k", type=int, default=10)
     esearch.add_argument(
@@ -272,7 +273,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--vocabulary",
         "-v",
         required=True,
-        help="snomed loinc icd10cm icd10pcs icd10 icd9cm rxnorm atc icf",
+        help="snomed loinc icd10cm icd10pcs icd10 icd9cm rxnorm atc icf mesh",
     )
     essearch.add_argument("--top-k", "-k", type=int, default=10)
     essearch.add_argument("--kind", help="only concepts of this kind")

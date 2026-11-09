@@ -7,13 +7,14 @@ official maps leave (WHO ICD-10 <-> ICD-10-CM, SNOMED CT <-> ICD-10-PCS, LOINC
 <-> ICD-10-CM, ICD-9-CM <-> WHO ICD-10, ...).
 
 * Concepts, relations: none; UMLS adds no nodes.
-* Mappings: from ``MRCONSO.RRF``, the current atoms (``SUPPRESS=N``) of
-  ICD9CM (codes and headers, ``PT`` / ``HT``), SNOMEDCT_US, LNC, RXNORM, ATC,
-  ICD10CM, ICD10PCS, ICD10 (WHO), ICF and ICF-CY (both ``Vocabulary.ICF``). For
+* Mappings: from ``MRCONSO.RRF``, the current atoms (``SUPPRESS=N``) of MSH
+  (MeSH descriptors and supplementary records), ICD9CM (codes and
+  headers, ``PT`` / ``HT``), SNOMEDCT_US, LNC, RXNORM, ATC, ICD10CM, ICD10PCS,
+  ICD10 (WHO), ICF and ICF-CY (both ``Vocabulary.ICF``). For
   each CUI, every pair of codes of two different vocabularies, ``equivalent``, keyed by
   the CUI. Each pair points one way, from the vocabulary earlier in
-  :data:`ORDER` (ICD-9-CM, LOINC, RxNorm, SNOMED CT, ATC, ICD-10-CM, ICD-10-PCS,
-  ICD-10, ICF),
+  :data:`ORDER` (MeSH, ICD-9-CM, LOINC, RxNorm, SNOMED CT, ATC, ICD-10-CM,
+  ICD-10-PCS, ICD-10, ICF),
   following the official maps' directions. UMLS-made codes (LOINC ``MTHU...``)
   and the ICD-10-PCS axis codes (4-6 characters) are left out.
 
@@ -41,7 +42,8 @@ CONSO = "META/MRCONSO.RRF"
 UMLS_PROVENANCE = "UMLS Metathesaurus (shared CUI)"
 
 SOURCES = {
-    "ICD9CM": Vocabulary.ICD9CM,  # first: its edges point to the successors
+    "MSH": Vocabulary.MESH,  # first: diseases, as MED-RT's drugs point to them
+    "ICD9CM": Vocabulary.ICD9CM,  # its edges point to the successors
     "LNC": Vocabulary.LOINC,
     "RXNORM": Vocabulary.RXNORM,
     "SNOMEDCT_US": Vocabulary.SNOMED,
