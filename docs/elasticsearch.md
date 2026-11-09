@@ -71,8 +71,9 @@ and per-vocabulary details are in
 | `text.exact` | keyword, lowercased + ASCII-folded | | whole-text match, for exact-match boosts |
 | `semantic_tag`, `extension` | keyword | `disorder`, `loinc` | `SNOMEDCT` |
 | `class`, `order_obs`, `part_type` | keyword | `CHEM`, `Both`, `COMPONENT` | `LOINC` terms / parts |
-| `billable` | boolean | | `ICD10CM`, `ICD10PCS` |
-| `code_no_dot` | keyword | `E1110` | `ICD10CM` (the form MIMIC uses) |
+| `billable` | boolean | | `ICD10CM`, `ICD10PCS`, `ICD9CM` |
+| `code_no_dot` | keyword | `E1110`, `25001` | `ICD10CM`, `ICD9CM` (the form MIMIC uses) |
+| `axis` | keyword | `diagnosis`, `procedure` | `ICD9CM` |
 
 The mapping is `dynamic: strict`. The concept fields have the same names as the
 node properties.

@@ -75,8 +75,9 @@ CONCEPT_FIELDS: dict[str, dict[str, Any]] = {
     "class": _KEYWORD,  # LOINC term class (CHEM, HEM/BC, ...)
     "order_obs": _KEYWORD,  # LOINC term: Order, Observation, Both
     "part_type": _KEYWORD,  # LOINC part (COMPONENT, SYSTEM, ...)
-    "billable": {"type": "boolean"},  # ICD10CM, ICD10PCS
-    "code_no_dot": _KEYWORD,  # ICD10CM (E119, as in MIMIC)
+    "billable": {"type": "boolean"},  # ICD10CM, ICD10PCS, ICD9CM
+    "code_no_dot": _KEYWORD,  # ICD10CM (E119, as in MIMIC), ICD9CM (25001)
+    "axis": _KEYWORD,  # ICD9CM: diagnosis or procedure
 }
 """Concept properties copied onto each document, for filtering; same names as
 the node properties. A concept without the property leaves the field out."""
